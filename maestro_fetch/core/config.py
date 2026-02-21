@@ -11,6 +11,7 @@ class FetchConfig:
     - provider defaults to "anthropic"; model=None means use provider default.
     - output_format is one of "markdown", "json", "text".
     - timeout and max_retries are positive integers.
+    - headers/cookies are passed through to HTTP clients (httpx, crawl4ai).
     """
 
     provider: str = "anthropic"
@@ -20,3 +21,5 @@ class FetchConfig:
     cache_dir: Path = Path(".maestro_cache")
     timeout: int = 60
     max_retries: int = 3
+    headers: dict[str, str] | None = None
+    cookies: dict[str, str] | None = None

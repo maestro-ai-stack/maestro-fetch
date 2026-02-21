@@ -43,7 +43,10 @@ class WebAdapter(BaseAdapter):
 
         try:
             async with AsyncWebCrawler() as crawler:
-                crawl_result = await crawler.arun(url=url)
+                crawl_kwargs: dict = dict(url=url)
+                if config.headers:
+                    crawl_kwargs["headers"] = config.headers
+                crawl_result = await crawler.arun(**crawl_kwargs)
                 if not crawl_result.success:
                     raise DownloadError(f"Crawl4AI failed for {url}")
                 content = crawl_result.markdown or ""

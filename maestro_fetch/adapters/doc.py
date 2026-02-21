@@ -109,9 +109,14 @@ class DocAdapter(BaseAdapter):
     async def _download(url: str, config: FetchConfig) -> bytes:
         """Download file content from URL. Raises DownloadError on failure."""
         try:
-            async with httpx.AsyncClient(
+            client_kwargs: dict = dict(
                 follow_redirects=True, timeout=config.timeout
-            ) as client:
+            )
+            if config.headers:
+                client_kwargs["headers"] = config.headers
+            if config.cookies:
+                client_kwargs["cookies"] = config.cookies
+            async with httpx.AsyncClient(**client_kwargs) as client:
                 response = await client.get(url)
                 if response.status_code != 200:
                     raise DownloadError(f"HTTP {response.status_code} for {url}")

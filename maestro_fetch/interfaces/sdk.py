@@ -26,6 +26,8 @@ async def fetch(
     output_format: str = "markdown",
     cache_dir: str = ".maestro_cache",
     timeout: int = 60,
+    headers: dict[str, str] | None = None,
+    cookies: dict[str, str] | None = None,
 ) -> FetchResult:
     """Fetch data from any URL. Auto-detects source type."""
     config = FetchConfig(
@@ -35,6 +37,8 @@ async def fetch(
         output_format=output_format,
         cache_dir=Path(cache_dir),
         timeout=timeout,
+        headers=headers,
+        cookies=cookies,
     )
     return await _fetcher.fetch(url, config)
 
