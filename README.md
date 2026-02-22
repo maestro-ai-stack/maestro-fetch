@@ -21,14 +21,16 @@
 ## Install
 
 ```bash
-pip install maestro-fetch            # web + cloud
-pip install maestro-fetch[pdf]       # + PDF/Excel (Docling)
-pip install maestro-fetch[media]     # + YouTube/audio (yt-dlp + Whisper)
-pip install maestro-fetch[anthropic] # + Claude extraction
-pip install maestro-fetch[openai]    # + GPT-4o extraction
-pip install maestro-fetch[mcp]       # + MCP server
+pip install maestro-fetch            # core: web + cloud + PDF/CSV (no API key needed)
+pip install maestro-fetch[pdf]       # + advanced PDF/Excel parsing (Docling)
+pip install maestro-fetch[media]     # + YouTube/audio transcription (yt-dlp + Whisper)
+pip install maestro-fetch[anthropic] # + Claude LLM extraction (requires ANTHROPIC_API_KEY)
+pip install maestro-fetch[openai]    # + GPT-4o LLM extraction (requires OPENAI_API_KEY)
+pip install maestro-fetch[mcp]       # + MCP server for Claude Code
 pip install maestro-fetch[all]       # everything
 ```
+
+> **Note:** Core fetching (`fetch`, `batch_fetch`) works without any API key. LLM API keys are only needed when using `schema` or `provider` parameters for structured extraction.
 
 ## Quick Start
 
