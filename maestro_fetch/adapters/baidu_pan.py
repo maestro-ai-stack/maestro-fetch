@@ -319,7 +319,7 @@ async def _save_share_via_playwright(url: str, access_token: str) -> str:
                     pass
 
         page.on("response", handle_response)
-        await page.goto(url, wait_until="networkidle", timeout=30_000)
+        await page.goto(url, wait_until="domcontentloaded", timeout=30_000)
 
         # Check if we need to enter the pwd (extract code input visible)
         pwd_input = page.locator("input[placeholder*='提取码'], input[placeholder*='密码']")
@@ -331,7 +331,6 @@ async def _save_share_via_playwright(url: str, access_token: str) -> str:
                 await page.locator(
                     "button:has-text('提取文件'), button:has-text('确定')"
                 ).first.click()
-                await page.wait_for_load_state("networkidle", timeout=15_000)
 
         # Check if we're not logged in (login prompt)
         login_btn = page.locator("text=登录, text=去登录")
@@ -339,10 +338,11 @@ async def _save_share_via_playwright(url: str, access_token: str) -> str:
             print("[BaiduPan] Please log in to Baidu in the browser window that opened.")
             print("           After logging in, press Enter here to continue.")
             sys.stdin.readline()
-            await page.goto(url, wait_until="networkidle", timeout=30_000)
+            await page.goto(url, wait_until="domcontentloaded", timeout=30_000)
 
-        # Give any lazy share/list XHR a moment to complete
-        await page.wait_for_timeout(1500)
+        # Wait for share/list XHR (Baidu SPA fires it after domcontentloaded).
+        # 5s is generous; typical load is <2s on a good connection.
+        await page.wait_for_timeout(5000)
         page.remove_listener("response", handle_response)
 
         # Click 保存到网盘 (may not exist if already saved -- that's OK)

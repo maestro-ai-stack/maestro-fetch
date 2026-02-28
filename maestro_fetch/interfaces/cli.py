@@ -49,7 +49,7 @@ def main(
         None, "--batch", help="File containing one URL per line",
     ),
     cache_dir: str = typer.Option(
-        ".maestro_cache", "--cache-dir", help="Cache directory",
+        str(Path.home() / ".maestro" / "cache"), "--cache-dir", help="Cache directory",
     ),
     timeout: int = typer.Option(
         60, "--timeout", help="Request timeout in seconds",
