@@ -31,11 +31,19 @@ _CLOUD_PATTERNS = [
 ]
 
 
+_GDOC_EXPORT = {
+    "document": ("txt", "text/plain"),
+    "spreadsheets": ("csv", "text/csv"),
+    "presentation": ("pdf", "application/pdf"),
+}
+
+
 def _to_direct_url(url: str) -> str:
     """Convert a share URL to a direct-download URL.
 
     Dropbox: replace dl=0 with dl=1, or append dl=1.
-    GDrive:  extract file ID and build /uc?export=download link.
+    GDrive file:  extract file ID and build /uc?export=download link.
+    Google Docs/Sheets/Slides: build /export?format= link.
     """
     if "dropbox.com" in url:
         if "dl=0" in url:
@@ -43,6 +51,15 @@ def _to_direct_url(url: str) -> str:
         if "?" in url:
             return url + "&dl=1"
         return url + "?dl=1"
+
+    gdoc_match = re.search(
+        r"docs\.google\.com/(document|spreadsheets|presentation)/d/([^/]+)", url
+    )
+    if gdoc_match:
+        doc_type = gdoc_match.group(1)
+        doc_id = gdoc_match.group(2)
+        fmt = _GDOC_EXPORT[doc_type][0]
+        return f"https://docs.google.com/{doc_type}/d/{doc_id}/export?format={fmt}"
 
     gdrive_match = re.search(r"/file/d/([^/]+)", url)
     if gdrive_match:
@@ -54,6 +71,14 @@ def _to_direct_url(url: str) -> str:
 
 def _extract_filename(url: str) -> str:
     """Extract a plausible filename from the URL path."""
+    gdoc_match = re.search(
+        r"docs\.google\.com/(document|spreadsheets|presentation)/d/([^/]+)", url
+    )
+    if gdoc_match:
+        doc_type = gdoc_match.group(1)
+        doc_id = gdoc_match.group(2)
+        ext = _GDOC_EXPORT[doc_type][0]
+        return f"{doc_id}.{ext}"
     return url.split("?")[0].rstrip("/").split("/")[-1] or "download"
 
 
