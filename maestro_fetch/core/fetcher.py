@@ -14,6 +14,7 @@ Failure modes: UnsupportedURLError if no adapter matches
 from __future__ import annotations
 
 from maestro_fetch.adapters.baidu_pan import BaiduPanAdapter
+from maestro_fetch.adapters.binary import BinaryAdapter
 from maestro_fetch.adapters.cloud import CloudAdapter
 from maestro_fetch.adapters.doc import DocAdapter
 from maestro_fetch.adapters.web import WebAdapter
@@ -21,8 +22,11 @@ from maestro_fetch.core.config import FetchConfig
 from maestro_fetch.core.result import FetchResult
 from maestro_fetch.core.errors import UnsupportedURLError
 
-# Order matters: BaiduPan before Cloud (both match baidu URLs; BaiduPan is more specific)
-_DEFAULT_ADAPTERS = [BaiduPanAdapter, CloudAdapter, DocAdapter, WebAdapter]
+# Order matters:
+#   BaiduPan > Cloud (both match baidu; BaiduPan more specific)
+#   Binary > Doc (binary handles archives; Doc handles parseable docs)
+#   Web is final fallback
+_DEFAULT_ADAPTERS = [BaiduPanAdapter, CloudAdapter, BinaryAdapter, DocAdapter, WebAdapter]
 
 
 class Fetcher:
