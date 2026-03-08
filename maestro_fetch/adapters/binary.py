@@ -83,39 +83,70 @@ class BinaryAdapter(BaseAdapter):
                 raw_path=raw_path,
             )
 
-        # --- streaming download ---
+        # --- streaming download (with resume support) ---
+        # Attempt Range resume if partial file exists and remote supports it.
+        # Falls back to fresh download if server returns 200 (no Range support).
+        resume_from = cached_size if cached_size > 0 else 0
         size_str = _format_size(remote_size) if remote_size else "unknown size"
-        print(f"[download] {filename} ({size_str}) ...", file=sys.stderr)
+        if resume_from > 0 and remote_size and resume_from < remote_size:
+            print(f"[resume] {filename} from {_format_size(resume_from)} / {size_str} ...", file=sys.stderr)
+        else:
+            resume_from = 0
+            print(f"[download] {filename} ({size_str}) ...", file=sys.stderr)
 
-        try:
-            async with httpx.AsyncClient(
-                follow_redirects=True,
-                timeout=httpx.Timeout(connect=30.0, read=3600.0, write=60.0, pool=30.0),
-                headers=config.headers or {},
-            ) as client:
-                async with client.stream("GET", url) as response:
-                    if response.status_code != 200:
-                        raise DownloadError(f"HTTP {response.status_code} for {url}")
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                headers = dict(config.headers or {})
+                if resume_from > 0:
+                    headers["Range"] = f"bytes={resume_from}-"
 
-                    downloaded = 0
-                    with raw_path.open("wb") as f:
-                        async for chunk in response.aiter_bytes(chunk_size=_CHUNK_SIZE):
-                            f.write(chunk)
-                            downloaded += len(chunk)
-                            if remote_size:
-                                pct = downloaded / remote_size * 100
-                                bar = "#" * int(pct / 2)
-                                print(
-                                    f"\r  [{bar:<50}] {pct:5.1f}%  "
-                                    f"{_format_size(downloaded)} / {_format_size(remote_size)}",
-                                    end="",
-                                    file=sys.stderr,
-                                )
-                    if remote_size:
-                        print(file=sys.stderr)  # newline after progress bar
+                async with httpx.AsyncClient(
+                    follow_redirects=True,
+                    timeout=httpx.Timeout(connect=30.0, read=3600.0, write=60.0, pool=30.0),
+                    headers=headers,
+                ) as client:
+                    async with client.stream("GET", url) as response:
+                        if response.status_code == 206:
+                            # Server supports Range — append to existing file
+                            file_mode = "ab"
+                            downloaded = resume_from
+                        elif response.status_code == 200:
+                            # Server ignored Range header — restart from scratch
+                            file_mode = "wb"
+                            downloaded = 0
+                            resume_from = 0
+                        else:
+                            raise DownloadError(f"HTTP {response.status_code} for {url}")
 
-        except httpx.RequestError as e:
-            raise DownloadError(f"Network error downloading {url}: {e}") from e
+                        with raw_path.open(file_mode) as f:
+                            async for chunk in response.aiter_bytes(chunk_size=_CHUNK_SIZE):
+                                f.write(chunk)
+                                downloaded += len(chunk)
+                                if remote_size:
+                                    pct = downloaded / remote_size * 100
+                                    bar = "#" * int(pct / 2)
+                                    print(
+                                        f"\r  [{bar:<50}] {pct:5.1f}%  "
+                                        f"{_format_size(downloaded)} / {_format_size(remote_size)}",
+                                        end="",
+                                        file=sys.stderr,
+                                    )
+                        if remote_size:
+                            print(file=sys.stderr)  # newline after progress bar
+                break  # success — exit retry loop
+
+            except httpx.RequestError as e:
+                final_size = raw_path.stat().st_size if raw_path.exists() else 0
+                if attempt < max_retries - 1 and final_size > 0:
+                    resume_from = final_size
+                    print(
+                        f"\n[retry {attempt+1}/{max_retries}] {filename} — "
+                        f"resuming from {_format_size(resume_from)}",
+                        file=sys.stderr,
+                    )
+                else:
+                    raise DownloadError(f"Network error downloading {url}: {e}") from e
 
         final_size = raw_path.stat().st_size
         print(f"[done] {raw_path}  ({_format_size(final_size)})", file=sys.stderr)
