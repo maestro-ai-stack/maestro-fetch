@@ -5,8 +5,6 @@ Uses typer.testing.CliRunner (no subprocess, no network).
 """
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, patch
-
 from typer.testing import CliRunner
 
 from maestro_fetch.cli import app

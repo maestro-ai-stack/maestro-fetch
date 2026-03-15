@@ -1,131 +1,100 @@
 # maestro-fetch
 
-**Fetch everything, for agents.**
+**One interface. Any source. Agent-ready output.**
 
-[![PyPI version](https://img.shields.io/pypi/v/maestro-fetch)](https://pypi.org/project/maestro-fetch/)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![GitHub stars](https://img.shields.io/github/stars/maestro-ai-stack/maestro-fetch)](https://github.com/maestro-ai-stack/maestro-fetch)
+[![PyPI version](https://img.shields.io/pypi/v/maestro-fetch.svg)](https://pypi.org/project/maestro-fetch/)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-Universal data acquisition for AI agents with smart routing across 15+ source types.
-
----
-
-## Quick Start
+A Python CLI and SDK that fetches data from any URL -- web pages, PDFs, spreadsheets, cloud storage, video, binary datasets -- and returns agent-friendly markdown or structured data. Smart routing picks the right adapter automatically; pluggable browser backends handle anti-bot and authentication.
 
 ```bash
 pip install maestro-fetch
-mfetch "https://any-url.com"
+mfetch "https://example.com/report.pdf"
 ```
 
 ---
 
-## Features
+## Why maestro-fetch?
 
-| Capability | Description |
-|---|---|
-| Smart routing | Auto-detects URL type and dispatches to the right adapter |
-| 7 built-in adapters | `web`, `doc`, `binary`, `cloud`, `media`, `baidu_pan`, `browser` |
-| Pluggable browser backends | bb-browser, Cloudflare Browser Rendering, Playwright |
-| Community source adapters | economics, finance, climate, social, academic, government |
-| SQLite cache with TTL | Content-addressed storage, configurable eviction (LRU) |
-| Interactive browser sessions | Click, fill, screenshot, eval JS via Playwright |
-| Agent-friendly output | Markdown by default, with JSON/CSV/raw alternatives |
+| | maestro-fetch | Firecrawl | Jina Reader | crawl4ai |
+|---|---|---|---|---|
+| Source types | 7 built-in adapters + community sources | Web pages only | Web pages only | Web pages only |
+| PDF / Excel / CSV | Native parsing (Docling) | Requires separate tool | No | No |
+| Video transcription | yt-dlp + Whisper | No | No | No |
+| Cloud storage | Google Drive, Dropbox, Baidu Pan | No | No | No |
+| Binary datasets | GeoTIFF, NetCDF, Parquet, HDF5, ... | No | No | No |
+| Browser backends | 3 pluggable (bb-browser, Cloudflare, Playwright) | Hosted only | Hosted only | Playwright only |
+| Hosting | Self-hosted, no API key required | SaaS | SaaS | Self-hosted |
+| Community adapters | Extensible (economics, finance, climate, ...) | No | No | No |
+| Cache | SQLite with TTL and LRU eviction | No | No | No |
+
+maestro-fetch treats "fetch" as a universal problem -- not just web scraping. Give it any URL and it figures out the rest: route to the right adapter, pick a browser backend if needed, parse the content, return markdown or structured data.
 
 ---
 
-## CLI Examples
+## Supported Sources
+
+| Adapter | Source types | Examples |
+|---|---|---|
+| `web` | HTML pages, APIs, SPAs | Any URL; falls back through crawl4ai, httpx, Cloudflare, bb-browser, Playwright |
+| `doc` | Documents and spreadsheets | `.pdf`, `.xlsx`, `.xls`, `.ods`, `.csv` |
+| `binary` | Archives, geospatial, data science | `.zip`, `.parquet`, `.tif`, `.nc`, `.hdf5`, `.shp`, `.feather` |
+| `cloud` | Cloud storage | Google Drive, Google Docs/Sheets, Dropbox |
+| `media` | Video and audio | YouTube, Vimeo (transcription via yt-dlp + Whisper) |
+| `baidu_pan` | Baidu Pan | `pan.baidu.com` links via OAuth + PCS API |
+| `browser` | Authenticated / JS-heavy pages | Playwright interactive sessions |
+| `source` | Community adapters | World Bank, FRED, NOAA, academic datasets, ... |
+
+---
+
+## CLI Usage
 
 ### Fetch any URL
 
 ```bash
-mfetch "https://example.com/report.pdf"           # auto-detect, markdown output
+mfetch "https://example.com"                       # auto-detect, markdown output
+mfetch "https://example.com/report.pdf"            # PDF -> markdown
 mfetch "https://example.com" --output json         # JSON output
-mfetch "https://example.com" --backend cloudflare  # force backend
-mfetch batch urls.txt --dir ./data/ --concurrency 10
+mfetch "https://example.com" --timeout 120         # custom timeout
+mfetch "https://example.com" --batch urls.txt      # batch from file
 ```
 
-### Source adapters
+### Community source adapters
 
 ```bash
-mfetch source update                      # pull community adapters
-mfetch source list --category economics   # browse by category
-mfetch source info worldbank/gdp          # show args and examples
-mfetch source run worldbank/gdp CN        # fetch World Bank GDP for China
+mfetch source update                               # pull latest adapters
+mfetch source list                                 # show all adapters
+mfetch source list --category economics            # filter by category
+mfetch source info worldbank/gdp                   # show args and examples
+mfetch source run worldbank/gdp CN                 # fetch World Bank GDP for China
 ```
 
 ### Interactive browser sessions
 
 ```bash
-mfetch session start "https://login-required-site.com"
+mfetch session start "https://login-required.com"
 mfetch session fill "#email" "user@example.com"
 mfetch session click "#submit"
-mfetch session snapshot                   # current page as markdown
+mfetch session snapshot                            # current page as markdown
+mfetch session screenshot                          # save screenshot
 mfetch session end
 ```
 
 ### Cache management
 
 ```bash
-mfetch cache list
-mfetch cache clear --older-than 7d
+mfetch cache list                                  # show cached entries
+mfetch cache clear                                 # clear all
+mfetch cache clear --older-than 7d                 # evict old entries
 ```
 
----
-
-## Architecture
-
-```
-                          +------------------+
-                          |   CLI / SDK      |
-                          |  (mfetch / API)  |
-                          +--------+---------+
-                                   |
-                          +--------v---------+
-                          |     Router       |
-                          | (URL detection)  |
-                          +--------+---------+
-                                   |
-             +---------------------+---------------------+
-             |          |          |         |            |
-       +-----v--+ +----v---+ +---v----+ +--v-----+ +---v------+
-       |  web   | |  doc   | | cloud  | | media  | | source   |
-       |adapter | |adapter | |adapter | |adapter | | adapters |
-       +-----+--+ +--------+ +--------+ +--------+ +----------+
-             |
-    +--------+--------+--------+
-    |        |        |        |
-+---v---+ +--v----+ +-v-------++
-|crawl4ai| |Cloud- | |Playwright|
-|/ httpx | |flare  | |(fallback)|
-+--------+ +-------+ +---------+
-    Browser Backends
-```
-
-**Router decision chain:**
-
-1. Match community source adapter (`@meta` pattern) -- dispatch to source
-2. Match built-in adapter (baidu pan, cloud, media, doc, binary) -- dispatch directly
-3. Web content fallback chain: crawl4ai -> httpx -> Cloudflare -> bb-browser -> playwright-stealth
-
----
-
-## Installation
+### Configuration
 
 ```bash
-# Core (web + cloud + doc adapters)
-pip install maestro-fetch
-
-# With optional dependencies
-pip install maestro-fetch[pdf]       # PDF and Excel parsing (Docling, openpyxl)
-pip install maestro-fetch[media]     # YouTube/audio transcription (yt-dlp, Whisper)
-pip install maestro-fetch[browser]   # Interactive sessions (Playwright)
-pip install maestro-fetch[anthropic] # Claude LLM extraction
-pip install maestro-fetch[openai]    # GPT LLM extraction
-pip install maestro-fetch[all]       # Everything
+mfetch config init                                 # generate ~/.maestro-fetch/config.toml
+mfetch config show                                 # display current config
 ```
-
-Core fetching works without any API key. LLM keys are only needed for schema-based structured extraction.
 
 ---
 
@@ -136,19 +105,85 @@ from maestro_fetch import fetch, batch_fetch
 
 # Auto-detect and fetch
 result = await fetch("https://example.com/data")
-print(result.content)       # markdown
-print(result.source_type)   # "web" | "doc" | "cloud" | "media" | ...
+result.content       # markdown text
+result.source_type   # "web" | "doc" | "cloud" | "media" | "binary"
+result.tables        # list[pd.DataFrame] (if tabular data found)
+result.metadata      # provenance dict
+result.raw_path      # Path to cached raw file
 
 # Batch with concurrency
 results = await batch_fetch(urls, concurrency=10)
 
-# LLM extraction (requires ANTHROPIC_API_KEY)
+# LLM structured extraction (requires ANTHROPIC_API_KEY or OPENAI_API_KEY)
 result = await fetch(
     "https://worldbank.org/report.pdf",
     schema={"country": str, "gdp": float},
     provider="anthropic",
 )
 ```
+
+---
+
+## Installation
+
+```bash
+# Core -- web, cloud, doc adapters. No API key needed.
+pip install maestro-fetch
+
+# Optional extras
+pip install maestro-fetch[pdf]       # PDF and Excel parsing (Docling, openpyxl)
+pip install maestro-fetch[media]     # YouTube/audio transcription (yt-dlp, Whisper)
+pip install maestro-fetch[browser]   # Interactive sessions (Playwright)
+pip install maestro-fetch[anthropic] # Claude LLM extraction
+pip install maestro-fetch[openai]    # GPT LLM extraction
+pip install maestro-fetch[all]       # Everything
+```
+
+### Development setup
+
+```bash
+git clone https://github.com/maestro-ai-stack/maestro-fetch.git
+cd maestro-fetch
+python3.11 -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
+pytest tests/ -v
+```
+
+---
+
+## Architecture
+
+```
+                        +------------------+
+                        |   CLI / SDK      |
+                        |  (mfetch / API)  |
+                        +--------+---------+
+                                 |
+                        +--------v---------+
+                        |     Router       |
+                        | (URL detection)  |
+                        +--------+---------+
+                                 |
+           +----------+----------+----------+----------+
+           |          |          |          |          |
+      +----v---+ +---v----+ +--v-----+ +--v-----+ +-v--------+
+      |  web   | |  doc   | | cloud  | | media  | | source   |
+      |adapter | |adapter | |adapter | |adapter | | adapters |
+      +----+---+ +--------+ +--------+ +--------+ +----------+
+           |
+  +--------+--------+--------+
+  |        |        |        |
++-v------+ v------+ v--------+
+|crawl4ai| Cloud- | Playwright|
+|/ httpx | flare  | (fallback)|
++--------+ +------+ +---------+
+```
+
+**Router decision chain:**
+
+1. Match community source adapter (`@meta` pattern) -- dispatch to source
+2. Match built-in adapter (baidu pan, cloud, media, doc, binary) -- dispatch directly
+3. Web content fallback chain: crawl4ai -> httpx -> Cloudflare -> bb-browser -> playwright-stealth
 
 ---
 
@@ -159,13 +194,13 @@ Config lives at `~/.maestro-fetch/config.toml`. Generate with `mfetch config ini
 ```toml
 [cache]
 max_size = "2GB"
-default_ttl = 86400         # 1 day for web content
+default_ttl = 86400              # 1 day for web content
 
 [backends]
 priority = ["bb-browser", "cloudflare", "playwright"]
 
 [backends.bb-browser]
-enabled = true               # auto-detected from PATH
+enabled = true                    # auto-detected from PATH
 
 [backends.cloudflare]
 enabled = false
@@ -195,16 +230,7 @@ headless = true
 
 **Core improvements** -- open issues and PRs on this repo.
 
-**New source adapters** -- contribute to [maestro-ai-stack/maestro-fetch-sources](https://github.com/maestro-ai-stack/maestro-fetch-sources). Each adapter is a single Python file with `@meta` header and an `async def run(ctx, ...)` function. See the [source adapter format](docs/superpowers/specs/2026-03-15-maestro-fetch-v2-design.md#8-source-adapter-format) for details.
-
-```bash
-# Development setup
-git clone https://github.com/maestro-ai-stack/maestro-fetch.git
-cd maestro-fetch
-python3.11 -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
-pytest tests/ -v
-```
+**New source adapters** -- contribute to [maestro-ai-stack/maestro-fetch-sources](https://github.com/maestro-ai-stack/maestro-fetch-sources). Each adapter is a single Python file with an `@meta` header and an `async def run(ctx, ...)` function.
 
 ---
 

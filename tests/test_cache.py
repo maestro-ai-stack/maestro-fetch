@@ -5,7 +5,6 @@ All tests use tmp_path for filesystem isolation.
 """
 from __future__ import annotations
 
-import asyncio
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
