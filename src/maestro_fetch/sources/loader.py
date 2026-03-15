@@ -18,7 +18,7 @@ try:
 
     _YAML_AVAILABLE = True
 except ImportError:
-    # Fallback: a minimal YAML subset parser is provided below.
+    _yaml = None  # type: ignore[assignment]
     _YAML_AVAILABLE = False
 
 try:
@@ -188,8 +188,9 @@ def _parse_yaml_simple(text: str) -> dict:
 
 
 def _parse_yaml(text: str) -> dict:
-    if _YAML_AVAILABLE:
-        return _yaml.safe_load(text) or {}
+    if _YAML_AVAILABLE and _yaml is not None:
+        result: dict = _yaml.safe_load(text)  # type: ignore[union-attr]
+        return result or {}
     return _parse_yaml_simple(text)
 
 

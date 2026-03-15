@@ -11,17 +11,19 @@ from typing import Any
 from maestro_fetch.core.errors import FetchError
 
 try:
-    import html2text
+    import html2text as _html2text
 
     _H2T_AVAILABLE = True
 except ImportError:  # pragma: no cover
+    _html2text = None  # type: ignore[assignment]
     _H2T_AVAILABLE = False
 
 
 def _playwright_importable() -> bool:
     """Return True if playwright can be imported."""
     try:
-        import playwright  # noqa: F401
+        import playwright as _pw  # noqa: F401
+        _ = _pw
         return True
     except ImportError:
         return False
@@ -57,9 +59,9 @@ class PlaywrightBackend:
             finally:
                 await browser.close()
 
-        if not _H2T_AVAILABLE:
+        if not _H2T_AVAILABLE or _html2text is None:
             return html
-        converter = html2text.HTML2Text()
+        converter = _html2text.HTML2Text()
         converter.ignore_links = False
         converter.ignore_images = False
         return converter.handle(html)
@@ -103,6 +105,7 @@ class PlaywrightBackend:
 
     async def site_adapter(self, adapter_name: str, *args: str) -> dict:
         """Not supported by the Playwright backend."""
+        _ = adapter_name, args
         raise NotImplementedError(
             "Playwright backend does not support site adapters"
         )

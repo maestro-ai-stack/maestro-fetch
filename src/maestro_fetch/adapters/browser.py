@@ -27,7 +27,7 @@ class BrowserAdapter(BaseAdapter):
         """The browser adapter is a fallback -- it supports any HTTP(S) URL."""
         return url.startswith("http://") or url.startswith("https://")
 
-    async def fetch(self, url: str, config: FetchConfig) -> FetchResult:
+    async def fetch(self, url: str, config: FetchConfig) -> FetchResult:  # noqa: ARG002
         """Try each available backend in priority order.
 
         Returns the result from the first backend that succeeds.

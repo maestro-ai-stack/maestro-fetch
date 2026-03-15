@@ -12,6 +12,7 @@ from pathlib import Path
 import typer
 
 from maestro_fetch.sources.loader import (
+    SourceAdapter,
     SourceContext,
     load_sources,
     run_adapter,
@@ -30,9 +31,8 @@ _CUSTOM_DIR = _BASE_DIR / "custom"
 # ---------------------------------------------------------------------------
 
 
-def _find_adapter(name: str):  # noqa: ANN202
+def _find_adapter(name: str) -> SourceAdapter | None:
     """Look up an adapter by name across custom and community dirs."""
-    # Custom adapters override community ones.
     for directory in [_CUSTOM_DIR, _SOURCES_DIR]:
         adapters = load_sources(directory)
         for adapter in adapters:
@@ -41,9 +41,9 @@ def _find_adapter(name: str):  # noqa: ANN202
     return None
 
 
-def _all_adapters():  # noqa: ANN202
+def _all_adapters() -> list[SourceAdapter]:
     """Return all adapters, custom overriding community by name."""
-    seen: dict[str, object] = {}
+    seen: dict[str, SourceAdapter] = {}
     for directory in [_CUSTOM_DIR, _SOURCES_DIR]:
         for adapter in load_sources(directory):
             if adapter.meta.name not in seen:

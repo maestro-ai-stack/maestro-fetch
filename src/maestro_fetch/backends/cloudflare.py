@@ -42,7 +42,7 @@ class CloudflareBackend:
             "Content-Type": "application/json",
         }
 
-    async def _post(self, path: str, payload: dict) -> httpx.Response:
+    async def _post(self, path: str, payload: dict) -> "httpx.Response":
         """POST to a Browser Rendering endpoint and return the response."""
         if not _HTTPX_AVAILABLE:
             raise FetchError("httpx is required for the Cloudflare backend")
@@ -80,12 +80,14 @@ class CloudflareBackend:
 
     async def eval_js(self, js: str) -> None:
         """Not supported by Cloudflare Browser Rendering."""
+        _ = js
         raise NotImplementedError(
             "Cloudflare backend does not support eval_js"
         )
 
     async def site_adapter(self, adapter_name: str, *args: str) -> dict:
         """Not supported by Cloudflare Browser Rendering."""
+        _ = adapter_name, args
         raise NotImplementedError(
             "Cloudflare backend does not support site adapters"
         )

@@ -226,4 +226,4 @@ class CacheManager:
             await self._db.execute("DELETE FROM cache")
 
         await self._db.commit()
-        return len(rows)
+        return len(list(rows))
