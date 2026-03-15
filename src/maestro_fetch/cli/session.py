@@ -19,7 +19,7 @@ def start(url: str = typer.Argument(..., help="URL to open")) -> None:
 @app.command()
 def click(selector: str = typer.Argument(..., help="CSS selector")) -> None:
     """Click an element in the active session."""
-    typer.echo("session click: not yet implemented (Phase 2)")
+    typer.echo(f"session click {selector}: not yet implemented (Phase 2)")
     raise typer.Exit(code=0)
 
 
@@ -29,7 +29,7 @@ def fill(
     text: str = typer.Argument(..., help="Text to fill"),
 ) -> None:
     """Fill a form field in the active session."""
-    typer.echo("session fill: not yet implemented (Phase 2)")
+    typer.echo(f"session fill {selector} '{text}': not yet implemented (Phase 2)")
     raise typer.Exit(code=0)
 
 
@@ -50,7 +50,7 @@ def screenshot() -> None:
 @app.command("eval")
 def eval_js(js: str = typer.Argument(..., help="JavaScript to evaluate")) -> None:
     """Evaluate JavaScript in the active session."""
-    typer.echo("session eval: not yet implemented (Phase 2)")
+    typer.echo(f"session eval '{js}': not yet implemented (Phase 2)")
     raise typer.Exit(code=0)
 
 

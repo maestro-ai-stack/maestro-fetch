@@ -12,6 +12,7 @@ from typing import Optional
 
 import typer
 
+from maestro_fetch.core.result import FetchResult
 from maestro_fetch.interfaces.sdk import fetch, batch_fetch
 from maestro_fetch.core.errors import FetchError
 
@@ -85,14 +86,14 @@ def main(
 
 
 def _print_result(
-    result: object,
+    result: FetchResult,
     output_format: str,
     output_dir: Optional[Path],
 ) -> None:
     """Format and print a FetchResult to stdout (or save to file)."""
     # Binary results (images, archives, data files): copy raw file to output_dir
-    if getattr(result, "source_type", None) == "binary" and output_dir and getattr(result, "raw_path", None):
-        raw_path = Path(result.raw_path)
+    if result.source_type == "binary" and output_dir and result.raw_path:
+        raw_path = result.raw_path
         if raw_path.exists():
             output_dir.mkdir(parents=True, exist_ok=True)
             dest = output_dir / raw_path.name

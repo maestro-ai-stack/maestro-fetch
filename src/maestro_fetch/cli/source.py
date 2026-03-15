@@ -21,7 +21,7 @@ def list_sources(
     category: str = typer.Option(None, "--category", help="Filter by category"),
 ) -> None:
     """List available source adapters."""
-    typer.echo("source list: not yet implemented (Phase 2)")
+    typer.echo(f"source list (category={category}): not yet implemented (Phase 2)")
     raise typer.Exit(code=0)
 
 
@@ -38,5 +38,5 @@ def run(
     args: list[str] = typer.Argument(None, help="Adapter arguments"),
 ) -> None:
     """Execute a source adapter."""
-    typer.echo(f"source run {name}: not yet implemented (Phase 2)")
+    typer.echo(f"source run {name} {args}: not yet implemented (Phase 2)")
     raise typer.Exit(code=0)

@@ -21,5 +21,5 @@ def clear(
     older_than: str = typer.Option(None, "--older-than", help="Remove entries older than (e.g. 7d)"),
 ) -> None:
     """Clear cached entries."""
-    typer.echo("cache clear: not yet implemented (Phase 2)")
+    typer.echo(f"cache clear (older_than={older_than}): not yet implemented (Phase 2)")
     raise typer.Exit(code=0)
