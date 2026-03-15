@@ -1,120 +1,128 @@
 # maestro-fetch
 
-> Universal data acquisition toolkit. Fetch structured data from any URL.
+> Fetch everything, for agents. Universal data acquisition with smart routing.
 
-maestro-fetch is a Python library and MCP server that fetches data from any URL:
-web pages, APIs, PDFs, Excel/CSV, cloud storage (Dropbox, Google Drive),
-and video/audio (YouTube). It auto-detects the source type and returns
-structured content as markdown, tables (pandas DataFrames), and metadata.
+maestro-fetch is a Python CLI and SDK that fetches data from any URL --
+web pages, APIs, PDFs, Excel/CSV, cloud storage, video/audio, binary formats,
+and authenticated pages -- and returns agent-friendly markdown or structured data.
+It orchestrates multiple browser backends (bb-browser, Cloudflare, Playwright)
+behind a unified interface.
 
-## Quick Start (MCP Server for AI Agents)
+## Quick Start
 
-Install: pip install maestro-fetch[mcp]
+pip install maestro-fetch
+mfetch "https://any-url.com"
 
-Add to Claude Code .mcp.json:
-{
-  "mcpServers": {
-    "maestro-fetch": {
-      "command": "maestro-fetch-mcp"
-    }
-  }
-}
+## CLI Commands
 
-## MCP Tools
+### mfetch <url>
+Default fetch command. Smart-routes URL to the correct adapter.
+Options: --output (markdown|json|csv|raw), --dir, --no-cache, --timeout, --backend
 
-### fetch_url
-Fetch data from any single URL. Auto-detects source type.
-Parameters:
-- url (string, required): The URL to fetch
-- output_format (string, optional): "markdown" | "json" | "csv". Default: "markdown"
-- provider (string, optional): "anthropic" | "openai". Only needed with schema extraction.
-Returns: { url, source_type, content, table_count, metadata }
+### mfetch batch <file>
+Batch fetch URLs from a text file.
+Options: --dir, --concurrency
 
-### batch_fetch_urls
-Fetch multiple URLs concurrently.
-Parameters:
-- urls (list of strings, required): URLs to fetch
-- output_format (string, optional): "markdown" | "json" | "csv"
-- concurrency (integer, optional): Max parallel requests. Default: 5
-Returns: list of { url, source_type, content, table_count }
+### mfetch source update|list|info|run
+Manage and execute community source adapters from maestro-fetch-sources.
+- source update: git pull latest adapters
+- source list [--category]: browse available adapters
+- source info <name>: show adapter args and examples
+- source run <name> [args]: execute adapter
 
-### detect_url_type
-Classify a URL into source type without downloading.
-Parameters:
-- url (string, required): URL to classify
-Returns: { url, source_type } where source_type is "web" | "doc" | "cloud" | "media"
+### mfetch session start|click|fill|snapshot|screenshot|eval|end
+Interactive Playwright browser sessions for authenticated or complex pages.
+
+### mfetch cache list|clear
+SQLite cache management. clear --older-than <duration> for eviction.
+
+### mfetch config init|show
+Generate or display ~/.maestro-fetch/config.toml.
 
 ## Python SDK
 
 from maestro_fetch import fetch, batch_fetch
 
-# Basic fetch (no API key needed)
 result = await fetch("https://example.com/data")
 result.content      # markdown text
+result.source_type  # "web" | "doc" | "cloud" | "media" | "binary" | ...
 result.tables       # list[pd.DataFrame]
-result.source_type  # "web" | "doc" | "cloud" | "media"
-result.metadata     # dict
+result.metadata     # provenance dict
+result.raw_path     # Path to cached raw file
 
-# With custom headers
-result = await fetch(url, headers={"Authorization": "Bearer token"})
-
-# Batch fetch
 results = await batch_fetch(urls, concurrency=10)
 
 # LLM extraction (requires ANTHROPIC_API_KEY or OPENAI_API_KEY)
 result = await fetch(url, schema={"field": str}, provider="anthropic")
 
-## URL Type Detection
+## Architecture
 
-*.pdf -> doc (PDF parsing via Docling/pdfplumber)
-*.xlsx, *.xls, *.csv -> doc (spreadsheet parsing via openpyxl/pandas)
-dropbox.com/*, drive.google.com/* -> cloud (resolve share link + download)
-youtube.com/watch*, youtu.be/* -> media (yt-dlp + Whisper transcription)
-Everything else -> web (headless browser via Crawl4AI)
+URL -> Router (smart detection) -> Adapter -> FetchResult
 
-## Project Structure
+### Router Decision Chain
+1. Match community source adapter (@meta pattern)
+2. Match built-in adapter:
+   - pan.baidu.com -> BaiduPanAdapter
+   - dropbox/gdrive/gdocs -> CloudAdapter
+   - youtube/vimeo -> MediaAdapter
+   - *.pdf/xlsx/csv -> DocAdapter
+   - *.zip/tif/nc/parquet -> BinaryAdapter
+3. Web fallback chain: crawl4ai -> httpx -> Cloudflare -> bb-browser -> playwright-stealth
 
-maestro_fetch/
-  __init__.py              # exports: fetch, batch_fetch
-  core/
-    config.py              # FetchConfig dataclass (provider, schema, headers, cookies, timeout)
-    result.py              # FetchResult dataclass (url, source_type, content, tables, metadata)
-    router.py              # detect_type(url) -> "web"|"doc"|"cloud"|"media"
-    fetcher.py             # Fetcher: dispatches URL to correct adapter
-    errors.py              # FetchError, DownloadError, UnsupportedURLError
-  adapters/
-    base.py                # BaseAdapter ABC (supports, fetch)
-    web.py                 # WebAdapter -- Crawl4AI headless browser
-    doc.py                 # DocAdapter -- PDF (Docling), Excel (openpyxl), CSV (pandas)
-    cloud.py               # CloudAdapter -- Dropbox, Google Drive share links
-    media.py               # MediaAdapter -- yt-dlp + Whisper transcription
-  providers/
-    base.py                # LLMProvider ABC
-    registry.py            # @register decorator + get_provider()
-    anthropic.py           # AnthropicProvider (needs ANTHROPIC_API_KEY)
-    openai.py              # OpenAIProvider (needs OPENAI_API_KEY)
-  interfaces/
-    sdk.py                 # fetch(), batch_fetch() -- public async API
-    cli.py                 # maestro-fetch CLI (typer)
-    mcp_server.py          # MCP server (fastmcp)
+### 7 Built-in Adapters
+- web: general web content (multi-backend fallback chain)
+- doc: PDF, Excel, CSV parsing
+- binary: archives, geospatial, data science formats
+- cloud: Dropbox, Google Drive/Docs/Sheets
+- media: YouTube, Vimeo (yt-dlp + Whisper)
+- baidu_pan: Baidu Pan via OAuth + PCS API
+- browser: BrowserBackend dispatch
 
-## Key Design Decisions
+### 3 Pluggable Browser Backends
+- bb-browser: real Chrome + login state + 100+ site adapters
+- Cloudflare Browser Rendering: anti-bot, zero install, free tier
+- Playwright: interactive sessions, screenshots, PDF generation
 
-- Adapter priority: Cloud > Doc > Web (most specific first, Web is fallback)
-- LLM providers are optional; core fetch works without any API key
-- batch_fetch uses asyncio.Semaphore for concurrency control
-- headers/cookies are passed through to httpx and Crawl4AI
-- Python 3.11+ required
+### Community Source Adapters
+Separate repo: maestro-ai-stack/maestro-fetch-sources
+Categories: economics, finance, politics, climate, social, academic, government, industrial, internet
 
-## Build & Test
+## Storage
 
-python3.11 -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
-pytest tests/unit/ -v   # 42 tests, all mocked, no network needed
+~/.maestro-fetch/
+  config.toml       # TOML configuration
+  cache.db          # SQLite cache index (URL -> hash, TTL, metadata)
+  cache/            # content-addressed files
+  sources/          # git clone of community adapters
+  custom/           # user private adapters (override community)
+  sessions/         # temporary session state
 
-## Links
+## Configuration (config.toml)
 
-- Homepage: https://maestro.onl
-- GitHub: https://github.com/maesto-ai-tech/maestro-fetch
-- Dataset Catalog: https://ra.maestro.onl/data/datasets
-- Professional Data Services: https://ra.maestro.onl/data
+[cache]
+max_size = "2GB"
+default_ttl = 86400
+
+[backends]
+priority = ["bb-browser", "cloudflare", "playwright"]
+
+[backends.cloudflare]
+enabled = false
+account_id = ""
+api_token = ""
+
+## Installation Extras
+
+pip install maestro-fetch[pdf]       # Docling, openpyxl
+pip install maestro-fetch[media]     # yt-dlp, Whisper
+pip install maestro-fetch[browser]   # Playwright
+pip install maestro-fetch[anthropic] # Claude
+pip install maestro-fetch[openai]    # GPT
+pip install maestro-fetch[all]       # everything
+
+## Project Info
+
+- Python: 3.11+
+- License: MIT
+- GitHub: https://github.com/maestro-ai-stack/maestro-fetch
+- Community adapters: https://github.com/maestro-ai-stack/maestro-fetch-sources
