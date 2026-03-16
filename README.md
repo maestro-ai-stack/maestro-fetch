@@ -3,15 +3,62 @@
 **One interface. Any source. Agent-ready output.**
 
 [![PyPI version](https://img.shields.io/pypi/v/maestro-fetch.svg)](https://pypi.org/project/maestro-fetch/)
+[![Downloads](https://static.pepy.tech/badge/maestro-fetch/month)](https://pepy.tech/project/maestro-fetch)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
+[![CI](https://img.shields.io/github/actions/workflow/status/maestro-ai-stack/maestro-fetch/ci.yml?label=CI)](https://github.com/maestro-ai-stack/maestro-fetch/actions)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Skills Ecosystem](https://img.shields.io/badge/skills-ecosystem-blueviolet)](https://github.com/anthropics/skills)
 
-A Python CLI and SDK that fetches data from any URL -- web pages, PDFs, spreadsheets, cloud storage, video, binary datasets -- and returns agent-friendly markdown or structured data. Smart routing picks the right adapter automatically; pluggable browser backends handle anti-bot and authentication.
+Give it any URL -- web page, PDF, spreadsheet, cloud file, video, binary dataset -- and get back clean markdown or structured data. Smart routing picks the right adapter; pluggable browser backends handle anti-bot and authentication. No API key required.
+
+---
+
+## Quickstart
+
+### For AI Agents
+
+```bash
+# Claude Code -- install as a skill (Vercel skills ecosystem)
+npx skills add maestro-ai-stack/maestro-fetch -y -g
+
+# Claude Code -- install as a plugin (marketplace)
+/plugin marketplace add maestro-ai-stack/maestro-fetch
+/plugin install maestro-fetch@maestro-fetch
+```
+
+Works with: **Claude Code** | **Cursor** | **Codex** | **Gemini CLI** | **OpenCode** | **Trae** and any agent that speaks MCP or CLI tools.
+
+### For Developers
 
 ```bash
 pip install maestro-fetch
-mfetch "https://example.com/report.pdf"
+mfetch "https://example.com"
 ```
+
+Try it now:
+
+```bash
+$ mfetch "https://api.worldbank.org/v2/country/CN/indicator/NY.GDP.MKTP.CD?format=json&per_page=5"
+
+## GDP (current US$) - China
+
+| Year | GDP (USD)            |
+|------|----------------------|
+| 2024 | $17,794,782,410,032  |
+| 2023 | $17,662,434,751,902  |
+| 2022 | $17,963,170,547,847  |
+| 2021 | $17,734,062,645,371  |
+| 2020 | $14,687,674,437,370  |
+```
+
+```bash
+$ mfetch "https://arxiv.org/pdf/2301.07041"
+
+## Dissociating language and thought in large language models ...
+(full paper text as clean markdown)
+```
+
+If you find this useful, consider giving it a star -- it helps others discover the project.
 
 ---
 
@@ -139,17 +186,6 @@ pip install maestro-fetch[openai]    # GPT LLM extraction
 pip install maestro-fetch[all]       # Everything
 ```
 
-### Agent integration
-
-```bash
-# Claude Code -- install as skill (via Vercel skills ecosystem)
-npx skills add maestro-ai-stack/maestro-fetch
-
-# Claude Code -- install as plugin (via marketplace)
-/plugin marketplace add maestro-ai-stack/maestro-fetch
-/plugin install maestro-fetch@maestro-fetch
-```
-
 ### Development setup
 
 ```bash
@@ -162,39 +198,30 @@ pytest tests/ -v
 
 ---
 
+## Works With
+
+maestro-fetch integrates as a tool or skill in these AI agent environments:
+
+- **Claude Code** -- via [skills ecosystem](https://github.com/anthropics/skills) or [plugin marketplace](https://github.com/anthropics/claude-code-plugins)
+- **Cursor** -- as a CLI tool in agent mode
+- **OpenAI Codex** -- as a shell tool
+- **Gemini CLI** -- as an MCP tool
+- **OpenCode / Trae** -- via CLI or MCP bridge
+
+See the [maestro-fetch skill definition](https://github.com/maestro-ai-stack/maestro-fetch/tree/main/skill) for integration details.
+
+---
+
 ## Architecture
 
 ```
-                        +------------------+
-                        |   CLI / SDK      |
-                        |  (mfetch / API)  |
-                        +--------+---------+
-                                 |
-                        +--------v---------+
-                        |     Router       |
-                        | (URL detection)  |
-                        +--------+---------+
-                                 |
-           +----------+----------+----------+----------+
-           |          |          |          |          |
-      +----v---+ +---v----+ +--v-----+ +--v-----+ +-v--------+
-      |  web   | |  doc   | | cloud  | | media  | | source   |
-      |adapter | |adapter | |adapter | |adapter | | adapters |
-      +----+---+ +--------+ +--------+ +--------+ +----------+
-           |
-  +--------+--------+--------+
-  |        |        |        |
-+-v------+ v------+ v--------+
-|crawl4ai| Cloud- | Playwright|
-|/ httpx | flare  | (fallback)|
-+--------+ +------+ +---------+
+CLI / SDK  -->  Router (URL detection)  -->  Adapters: web | doc | cloud | media | binary | source
+                                                 |
+                                        Web fallback chain:
+                                  crawl4ai -> httpx -> Cloudflare -> bb-browser -> Playwright
 ```
 
-**Router decision chain:**
-
-1. Match community source adapter (`@meta` pattern) -- dispatch to source
-2. Match built-in adapter (baidu pan, cloud, media, doc, binary) -- dispatch directly
-3. Web content fallback chain: crawl4ai -> httpx -> Cloudflare -> bb-browser -> playwright-stealth
+**Router decision chain:** (1) match community source adapter (`@meta`) -- dispatch to source; (2) match built-in adapter -- dispatch directly; (3) web fallback chain for everything else.
 
 ---
 
@@ -205,35 +232,13 @@ Config lives at `~/.maestro-fetch/config.toml`. Generate with `mfetch config ini
 ```toml
 [cache]
 max_size = "2GB"
-default_ttl = 86400              # 1 day for web content
+default_ttl = 86400
 
 [backends]
 priority = ["bb-browser", "cloudflare", "playwright"]
-
-[backends.bb-browser]
-enabled = true                    # auto-detected from PATH
-
-[backends.cloudflare]
-enabled = false
-account_id = ""
-api_token = ""
-
-[backends.playwright]
-enabled = true
-headless = true
 ```
 
-### Storage layout
-
-```
-~/.maestro-fetch/
-  config.toml       # user configuration
-  cache.db          # SQLite cache index
-  cache/            # content-addressed file store
-  sources/          # community adapters (git clone)
-  custom/           # user private adapters (override community)
-  sessions/         # temporary session state
-```
+Storage: `~/.maestro-fetch/` contains `config.toml`, `cache.db`, `cache/`, `sources/`, `custom/`, `sessions/`.
 
 ---
 
