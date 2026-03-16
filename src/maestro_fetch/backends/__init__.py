@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 from maestro_fetch.backends.base import BrowserBackend
 from maestro_fetch.backends.bb_browser import BbBrowserBackend
+from maestro_fetch.backends.cdp import CDPBackend
 from maestro_fetch.backends.cloudflare import CloudflareBackend
 from maestro_fetch.backends.playwright import PlaywrightBackend
 
@@ -19,13 +20,14 @@ if TYPE_CHECKING:
 __all__ = [
     "BrowserBackend",
     "BbBrowserBackend",
+    "CDPBackend",
     "CloudflareBackend",
     "PlaywrightBackend",
     "get_available_backends",
     "get_best_backend",
 ]
 
-_DEFAULT_PRIORITY = ["bb-browser", "cloudflare", "playwright"]
+_DEFAULT_PRIORITY = ["bb-browser", "cdp", "cloudflare", "playwright"]
 
 
 def _make_backend(name: str, cfg: dict) -> BrowserBackend | None:
@@ -36,6 +38,9 @@ def _make_backend(name: str, cfg: dict) -> BrowserBackend | None:
 
     if name == "bb-browser":
         return BbBrowserBackend()
+    if name == "cdp":
+        endpoint = backend_cfg.get("endpoint")
+        return CDPBackend(endpoint=endpoint)
     if name == "cloudflare":
         account_id = backend_cfg.get("account_id", "")
         api_token = backend_cfg.get("api_token", "")

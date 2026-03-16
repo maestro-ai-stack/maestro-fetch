@@ -48,8 +48,41 @@ def main(
     timeout: int = typer.Option(
         60, "--timeout", help="Request timeout in seconds",
     ),
+    cdp: bool = typer.Option(
+        False, "--cdp",
+        help="Force CDP mode: connect to running Chrome (port 9222) for authenticated pages",
+    ),
+    cdp_endpoint: Optional[str] = typer.Option(
+        None, "--cdp-endpoint",
+        help="CDP endpoint URL (default: http://127.0.0.1:9222)",
+    ),
 ) -> None:
     """Fetch data from any URL. Auto-detects source type."""
+    # CDP 强制模式：直接通过已登录 Chrome 抓取
+    if cdp:
+        from maestro_fetch.backends.cdp import CDPBackend
+        from maestro_fetch.core.result import FetchResult as _FR
+
+        async def _cdp_fetch_direct(target_url: str) -> _FR:
+            backend = CDPBackend(endpoint=cdp_endpoint)
+            if not await backend.is_available():
+                raise FetchError(
+                    "CDP 不可用。请先启动 Chrome：\n"
+                    "  /Applications/Google\\ Chrome.app/Contents/MacOS/Google\\ Chrome "
+                    "--remote-debugging-port=9222"
+                )
+            content = await backend.fetch_content(target_url)
+            return _FR(url=target_url, source_type="web", content=content,
+                       tables=[], metadata={"adapter": "cdp"})
+
+        try:
+            result = asyncio.run(_cdp_fetch_direct(url))
+            _print_result(result, output, output_dir)
+        except FetchError as e:
+            typer.echo(f"Error: {e}", err=True)
+            raise typer.Exit(code=1)
+        return
+
     schema_dict = None
     if schema:
         schema_dict = json.loads(schema.read_text())

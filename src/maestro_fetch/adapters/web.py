@@ -60,6 +60,16 @@ _WAF_BLOCK_MARKERS = (
     "Access Denied",
 )
 
+# 登录墙标记：内容命中这些说明需要认证（CDP 可解决）
+_LOGIN_WALL_MARKERS = (
+    "Feishu, first choice",          # 飞书登录页（英文）
+    "飞书，先进企业协作与管理平台",       # 飞书登录页（中文）
+    "suite/passport/static/login",   # 飞书 passport 资源路径
+    "accounts.google.com/signin",    # Google 登录
+    "login.microsoftonline.com",     # Microsoft 登录
+    "sso.bytedance.com",             # 字节 SSO
+)
+
 
 def _is_crawl4ai_transient(exc: Exception) -> bool:
     """Return True when the exception looks like a crawl4ai navigation failure."""
@@ -70,6 +80,29 @@ def _is_crawl4ai_transient(exc: Exception) -> bool:
 def _is_waf_blocked(content: str) -> bool:
     """Return True when the response body looks like a WAF block page."""
     return any(marker in content for marker in _WAF_BLOCK_MARKERS)
+
+
+def _is_login_wall(content: str) -> bool:
+    """Return True when the content looks like a login/SSO redirect page."""
+    return any(marker in content for marker in _LOGIN_WALL_MARKERS)
+
+
+async def _cdp_fetch(url: str, config: FetchConfig) -> str | None:
+    """尝试通过 CDP 连接已运行的 Chrome 抓取页面。
+
+    成功返回 markdown 内容，CDP 不可用或失败返回 None。
+    """
+    try:
+        from maestro_fetch.backends.cdp import CDPBackend
+        backend = CDPBackend()
+        if not await backend.is_available():
+            return None
+        content = await backend.fetch_content(url)
+        if content and len(content) > 200 and not _is_login_wall(content):
+            return content
+        return None
+    except Exception:
+        return None
 
 
 async def _playwright_stealth_fetch(url: str, config: FetchConfig) -> str:
@@ -169,13 +202,13 @@ async def _httpx_fetch(url: str, config: FetchConfig) -> str:
 
 
 class WebAdapter(BaseAdapter):
-    """Fetches web pages via Crawl4AI with httpx fallback.
+    """Fetches web pages via Crawl4AI with CDP/httpx/stealth fallback.
 
     Strategy:
-      1. Try crawl4ai (headless browser) -- best for JS-rendered SPAs.
-      2. On navigation timeout / browser error, fall back to httpx plain GET
-         (best for static pages and government sites that block headless browsers).
-      3. Raise DownloadError only when both paths fail.
+      1. Try crawl4ai (headless browser) -- best for JS-rendered SPAs
+      1.5. On login wall/WAF, try CDP (已登录 Chrome) -- best for内网/飞书
+      2. Fall back to httpx plain GET (static/government sites)
+      3. Fall back to playwright-stealth (anti-bot WAF bypass)
     """
 
     def supports(self, url: str) -> bool:
@@ -195,7 +228,7 @@ class WebAdapter(BaseAdapter):
                 crawl_result = await crawler.arun(**crawl_kwargs)
                 if crawl_result.success:
                     md = crawl_result.markdown or ""
-                    if not _is_waf_blocked(md):
+                    if not _is_waf_blocked(md) and not _is_login_wall(md):
                         return FetchResult(
                             url=url,
                             source_type="web",
@@ -203,8 +236,10 @@ class WebAdapter(BaseAdapter):
                             tables=[],
                             metadata={"adapter": "crawl4ai"},
                         )
-                    # crawl4ai rendered a WAF block page -- escalate to httpx/stealth
-                    crawl4ai_error = DownloadError(f"WAF block detected (crawl4ai) for {url}")
+                    # WAF 或登录墙 -- 尝试 CDP 再 fallback
+                    crawl4ai_error = DownloadError(
+                        f"WAF/login wall detected (crawl4ai) for {url}"
+                    )
                 else:
                     # crawl4ai returned success=False -- treat as transient
                     crawl4ai_error = DownloadError(f"Crawl4AI failed for {url}")
@@ -216,6 +251,17 @@ class WebAdapter(BaseAdapter):
                 # Non-transient crawl4ai error (e.g. bad URL scheme) -- re-raise.
                 raise DownloadError(f"Web fetch failed for {url}: {exc}") from exc
             crawl4ai_error = exc
+
+        # --- Pass 1.5: CDP (复用已登录 Chrome) ---
+        cdp_content = await _cdp_fetch(url, config)
+        if cdp_content:
+            return FetchResult(
+                url=url,
+                source_type="web",
+                content=cdp_content,
+                tables=[],
+                metadata={"adapter": "cdp", "crawl4ai_error": str(crawl4ai_error)},
+            )
 
         # --- Pass 2: httpx plain GET fallback ---
         httpx_error: Exception | None = None

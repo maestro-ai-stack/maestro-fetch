@@ -47,7 +47,7 @@ DEFAULT_CONFIG: dict = {
         "format": "markdown",
     },
     "backends": {
-        "priority": ["bb-browser", "cloudflare", "playwright"],
+        "priority": ["bb-browser", "cdp", "cloudflare", "playwright"],
     },
 }
 
@@ -115,7 +115,7 @@ def write_default_config(path: Path | None = None) -> Path:
         'format = "markdown"',
         "",
         "[backends]",
-        'priority = ["bb-browser", "cloudflare", "playwright"]',
+        'priority = ["bb-browser", "cdp", "cloudflare", "playwright"]',
         "",
     ]
     dest.write_text("\n".join(lines) + "\n", encoding="utf-8")
