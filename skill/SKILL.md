@@ -1,6 +1,9 @@
 ---
 name: maestro-fetch
-description: "Universal file acquisition. Use when you need to download any file or data from a URL to local disk: web pages, PDFs, Excel/CSV, Dropbox, Google Drive, Baidu Pan share links, APIs, YouTube. maestro-fetch's job ends at raw_path — downstream skills (analyst, QA, OCR) handle processing. Triggers: fetch, download, scrape, crawl, get data, acquire data, Baidu Pan, pan.baidu.com, macrodatas, dropbox, drive.google.com, PDF download, Excel download, API data."
+description: |
+  Download any file or data from a URL to local disk via mfetch CLI.
+  Triggers: mfetch, maestro-fetch CLI, download URL, 下载.
+  Do NOT use for: browser automation → browser.
 ---
 
 # maestro-fetch — Universal File Acquisition
