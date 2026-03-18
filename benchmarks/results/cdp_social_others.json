@@ -1,0 +1,134 @@
+[
+  {
+    "site": "x.com",
+    "strategy": "httpx",
+    "latency_s": 0.46,
+    "content_len": 866,
+    "text_density": 0.752,
+    "link_count": 11,
+    "error": null,
+    "sample": "# JavaScript is not available. We’ve detected that JavaScript is disabled in this browser. Please enable JavaScript or switch to a supported browser to continue using x.com. You can see a list of...",
+    "api_intercepted": false
+  },
+  {
+    "site": "x.com",
+    "strategy": "crawl4ai",
+    "latency_s": 4.16,
+    "content_len": 1,
+    "text_density": 0.0,
+    "link_count": 0,
+    "error": null,
+    "sample": "",
+    "api_intercepted": false
+  },
+  {
+    "site": "x.com",
+    "strategy": "playwright-stealth",
+    "latency_s": 5.68,
+    "content_len": 970,
+    "text_density": 0.77,
+    "link_count": 9,
+    "error": null,
+    "sample": "# Nije dostupan JavaScript. We’ve detected that JavaScript is disabled in this browser. Please enable JavaScript or switch to a supported browser to continue using x.com. You can see a list of...",
+    "api_intercepted": false
+  },
+  {
+    "site": "reddit",
+    "strategy": "httpx",
+    "latency_s": 0.68,
+    "content_len": 8211,
+    "text_density": 0.657,
+    "link_count": 87,
+    "error": null,
+    "sample": "Skip to main content Open menu Open navigation [ ](/)Go to Reddit Home Get App Get the Reddit app [ Log In ](https://www.reddit.com/login/)Log in to Reddit Expand user menu Open settings menu * ##...",
+    "api_intercepted": false
+  },
+  {
+    "site": "reddit",
+    "strategy": "crawl4ai",
+    "latency_s": 1.85,
+    "content_len": 17453,
+    "text_density": 0.66,
+    "link_count": 245,
+    "error": null,
+    "sample": "[ Skip to main content ](https://www.reddit.com/r/popular/#main-content) r/popular Open menu Open navigation [ ](https://www.reddit.com/)Go to Reddit Home Get App Get the Reddit app [ Log In...",
+    "api_intercepted": false
+  },
+  {
+    "site": "reddit",
+    "strategy": "playwright-stealth",
+    "latency_s": 4.2,
+    "content_len": 8330,
+    "text_density": 0.655,
+    "link_count": 87,
+    "error": null,
+    "sample": "Skip to main content r/popular Open menu Open navigation [ ](/)Go to Reddit Home Get App Get the Reddit app [ Log In ](https://www.reddit.com/login/)Log in to Reddit Expand user menu Open settings...",
+    "api_intercepted": false
+  },
+  {
+    "site": "producthunt",
+    "strategy": "httpx",
+    "latency_s": 0.1,
+    "content_len": 19256,
+    "text_density": 0.745,
+    "link_count": 194,
+    "error": null,
+    "sample": "[](/) * [Best Products](/categories?ref=header_nav) * [Launches](/leaderboard/daily/2026/3/16?ref=header_nav) [Launch archiveMost-loved launches by the...",
+    "api_intercepted": false
+  },
+  {
+    "site": "producthunt",
+    "strategy": "crawl4ai",
+    "latency_s": 1.23,
+    "content_len": 527,
+    "text_density": 0.778,
+    "link_count": 5,
+    "error": null,
+    "sample": "![Icon for www.producthunt.com](https://www.producthunt.com/favicon.ico) # www.producthunt.com ## Performing security verification This website uses a security service to protect against malicious...",
+    "api_intercepted": false
+  },
+  {
+    "site": "producthunt",
+    "strategy": "playwright-stealth",
+    "latency_s": 3.62,
+    "content_len": 503,
+    "text_density": 0.781,
+    "link_count": 3,
+    "error": null,
+    "sample": "# www.producthunt.com ## Performing security verification This website uses a security service to protect against malicious bots. This page is displayed while the website verifies you are not a...",
+    "api_intercepted": false
+  },
+  {
+    "site": "github",
+    "strategy": "httpx",
+    "latency_s": 0.14,
+    "content_len": 58232,
+    "text_density": 0.729,
+    "link_count": 577,
+    "error": null,
+    "sample": "Skip to content ## Navigation Menu Toggle navigation [ ](/) [ Sign in ](/login?return_to=https%3A%2F%2Fgithub.com%2Ftrending) Appearance settings * Platform * AI CODE CREATION * [GitHub...",
+    "api_intercepted": false
+  },
+  {
+    "site": "github",
+    "strategy": "crawl4ai",
+    "latency_s": 2.69,
+    "content_len": 81960,
+    "text_density": 0.738,
+    "link_count": 2390,
+    "error": null,
+    "sample": "[Skip to content](https://github.com/trending#start-of-content) ## Navigation Menu Toggle navigation [ ](https://github.com/) [ Sign in...",
+    "api_intercepted": false
+  },
+  {
+    "site": "github",
+    "strategy": "playwright-stealth",
+    "latency_s": 4.0,
+    "content_len": 58230,
+    "text_density": 0.729,
+    "link_count": 577,
+    "error": null,
+    "sample": "Skip to content ## Navigation Menu Toggle navigation [ ](/) [ Sign in ](/login?return_to=https%3A%2F%2Fgithub.com%2Ftrending) Appearance settings * Platform * AI CODE CREATION * [GitHub...",
+    "api_intercepted": false
+  }
+]

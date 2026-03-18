@@ -1,0 +1,178 @@
+[
+  {
+    "site": "x.com",
+    "strategy": "cdp",
+    "latency_s": 7.95,
+    "content_len": 4882,
+    "text_density": 0.637,
+    "link_count": 72,
+    "error": null,
+    "sample": "For you Following Apple 副业有道 AI-Native Designers See new posts [](/kleon_ai) What’s happening? Post # Your Home Timeline [](/turingou) [郭宇 guoyu.eth](/turingou) [@turingou](/turingou) ·...",
+    "api_intercepted": true
+  },
+  {
+    "site": "x.com",
+    "strategy": "crawl4ai",
+    "latency_s": 3.56,
+    "content_len": 1,
+    "text_density": 0.0,
+    "link_count": 0,
+    "error": null,
+    "sample": "",
+    "api_intercepted": false
+  },
+  {
+    "site": "x.com",
+    "strategy": "httpx",
+    "latency_s": 0.52,
+    "content_len": 866,
+    "text_density": 0.752,
+    "link_count": 11,
+    "error": null,
+    "sample": "# JavaScript is not available. We’ve detected that JavaScript is disabled in this browser. Please enable JavaScript or switch to a supported browser to continue using x.com. You can see a list of...",
+    "api_intercepted": false
+  },
+  {
+    "site": "x.com",
+    "strategy": "playwright-stealth",
+    "latency_s": 5.01,
+    "content_len": 1028,
+    "text_density": 0.768,
+    "link_count": 9,
+    "error": null,
+    "sample": "# JavaScript n'est pas disponible. We’ve detected that JavaScript is disabled in this browser. Please enable JavaScript or switch to a supported browser to continue using x.com. You can see a list...",
+    "api_intercepted": false
+  },
+  {
+    "site": "reddit",
+    "strategy": "cdp",
+    "latency_s": 5.51,
+    "content_len": 30011,
+    "text_density": 0.73,
+    "link_count": 172,
+    "error": null,
+    "sample": "Best Open sort options * [ Best ](/r/popular/best/) * [ Hot ](/r/popular/hot/) * [ New ](/r/popular/new/) * [ Top ](/r/popular/top/) * [ Rising ](/r/popular/rising/) Everywhere Open sort options *...",
+    "api_intercepted": true
+  },
+  {
+    "site": "reddit",
+    "strategy": "crawl4ai",
+    "latency_s": 1.82,
+    "content_len": 17666,
+    "text_density": 0.658,
+    "link_count": 236,
+    "error": null,
+    "sample": "[ Skip to main content ](https://www.reddit.com/r/popular/#main-content) r/popular Open menu Open navigation [ ](https://www.reddit.com/)Go to Reddit Home Get App Get the Reddit app [ Log In...",
+    "api_intercepted": false
+  },
+  {
+    "site": "reddit",
+    "strategy": "httpx",
+    "latency_s": 0.85,
+    "content_len": 8289,
+    "text_density": 0.655,
+    "link_count": 87,
+    "error": null,
+    "sample": "Skip to main content Open menu Open navigation [ ](/)Go to Reddit Home Get App Get the Reddit app [ Log In ](https://www.reddit.com/login/)Log in to Reddit Expand user menu Open settings menu * ##...",
+    "api_intercepted": false
+  },
+  {
+    "site": "reddit",
+    "strategy": "playwright-stealth",
+    "latency_s": 4.28,
+    "content_len": 8313,
+    "text_density": 0.654,
+    "link_count": 87,
+    "error": null,
+    "sample": "Skip to main content r/popular Open menu Open navigation [ ](/)Go to Reddit Home Get App Get the Reddit app [ Log In ](https://www.reddit.com/login/)Log in to Reddit Expand user menu Open settings...",
+    "api_intercepted": false
+  },
+  {
+    "site": "producthunt",
+    "strategy": "cdp",
+    "latency_s": 3.27,
+    "content_len": 8891,
+    "text_density": 0.743,
+    "link_count": 140,
+    "error": null,
+    "sample": "Welcome to Product Hunt! The place to launch and discover new tech products.Take a tour. # Top Products Launching Today [1\\. MuleRun](/products/mulerun)Raise an AI that actually learns how you work...",
+    "api_intercepted": true
+  },
+  {
+    "site": "producthunt",
+    "strategy": "crawl4ai",
+    "latency_s": 0.98,
+    "content_len": 527,
+    "text_density": 0.784,
+    "link_count": 5,
+    "error": null,
+    "sample": "![Icon for www.producthunt.com](https://www.producthunt.com/favicon.ico) # www.producthunt.com ## Performing security verification This website uses a security service to protect against malicious...",
+    "api_intercepted": false
+  },
+  {
+    "site": "producthunt",
+    "strategy": "httpx",
+    "latency_s": 0.35,
+    "content_len": 19256,
+    "text_density": 0.745,
+    "link_count": 194,
+    "error": null,
+    "sample": "[](/) * [Best Products](/categories?ref=header_nav) * [Launches](/leaderboard/daily/2026/3/16?ref=header_nav) [Launch archiveMost-loved launches by the...",
+    "api_intercepted": false
+  },
+  {
+    "site": "producthunt",
+    "strategy": "playwright-stealth",
+    "latency_s": 3.63,
+    "content_len": 556,
+    "text_density": 0.788,
+    "link_count": 2,
+    "error": null,
+    "sample": "# www.producthunt.com ## Sicherheitsüberprüfung wird durchgeführt Diese Website nutzt einen Sicherheitsservice, um sich vor böswilligen Bots zu schützen. Diese Seite wird angezeigt, solange die...",
+    "api_intercepted": false
+  },
+  {
+    "site": "github",
+    "strategy": "cdp",
+    "latency_s": 2.64,
+    "content_len": 51609,
+    "text_density": 0.732,
+    "link_count": 1118,
+    "error": null,
+    "sample": "[Explore](/explore) [Topics](/topics) [Trending](/trending) [Collections](/collections) [Events](/events) [GitHub Sponsors](/sponsors/explore) # Trending See what the GitHub community is most...",
+    "api_intercepted": true
+  },
+  {
+    "site": "github",
+    "strategy": "crawl4ai",
+    "latency_s": 1.29,
+    "content_len": 81960,
+    "text_density": 0.738,
+    "link_count": 2390,
+    "error": null,
+    "sample": "[Skip to content](https://github.com/trending#start-of-content) ## Navigation Menu Toggle navigation [ ](https://github.com/) [ Sign in...",
+    "api_intercepted": false
+  },
+  {
+    "site": "github",
+    "strategy": "httpx",
+    "latency_s": 0.12,
+    "content_len": 58232,
+    "text_density": 0.729,
+    "link_count": 577,
+    "error": null,
+    "sample": "Skip to content ## Navigation Menu Toggle navigation [ ](/) [ Sign in ](/login?return_to=https%3A%2F%2Fgithub.com%2Ftrending) Appearance settings * Platform * AI CODE CREATION * [GitHub...",
+    "api_intercepted": false
+  },
+  {
+    "site": "github",
+    "strategy": "playwright-stealth",
+    "latency_s": 3.74,
+    "content_len": 58230,
+    "text_density": 0.729,
+    "link_count": 577,
+    "error": null,
+    "sample": "Skip to content ## Navigation Menu Toggle navigation [ ](/) [ Sign in ](/login?return_to=https%3A%2F%2Fgithub.com%2Ftrending) Appearance settings * Platform * AI CODE CREATION * [GitHub...",
+    "api_intercepted": false
+  }
+]

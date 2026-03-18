@@ -161,16 +161,13 @@ maestro-fetch "https://pan.baidu.com/s/1xxxxx?pwd=abcd"
 
 ## Installation
 
-Not on PyPI. Installed from local source:
-
 ```bash
-# CLI
-/Users/ding/maestro/projects/maestro-fetch/.venv/bin/maestro-fetch
+pip install -e .          # editable install from repo root
+maestro-fetch --help      # CLI available after install
+```
 
-# Python SDK (no install needed)
-import sys
-sys.path.insert(0, '/Users/ding/maestro/maestro-skills/fetch/scripts')
-from maestro_fetch import fetch
+```python
+from maestro_fetch import fetch   # Python SDK
 ```
 
 ### MCP Server (Claude Code)
@@ -180,8 +177,8 @@ Configured in `~/.claude/settings.json`:
 {
   "mcpServers": {
     "maestro-fetch": {
-      "command": "/Users/ding/maestro/projects/maestro-fetch/.venv/bin/python",
-      "args": ["-c", "import sys; sys.path.insert(0, '/Users/ding/maestro/maestro-skills/fetch/scripts'); from maestro_fetch.interfaces.mcp_server import mcp; mcp.run()"]
+      "command": "$VENV/bin/python",
+      "args": ["-m", "maestro_fetch.interfaces.mcp_server"]
     }
   }
 }

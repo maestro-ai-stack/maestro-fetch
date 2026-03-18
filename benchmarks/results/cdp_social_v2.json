@@ -1,0 +1,46 @@
+[
+  {
+    "site": "x.com",
+    "strategy": "cdp",
+    "latency_s": 9.18,
+    "content_len": 3972,
+    "text_density": 0.638,
+    "link_count": 62,
+    "error": null,
+    "sample": "For you Following Apple 副业有道 AI-Native Designers See new posts [](/kleon_ai) What’s happening? Post # Your Home Timeline [yihong0618 reposted](/yihong0618) [](/luanma_WY) [乱码1/2](/luanma_WY)...",
+    "api_intercepted": true
+  },
+  {
+    "site": "reddit",
+    "strategy": "cdp",
+    "latency_s": 5.48,
+    "content_len": 29400,
+    "text_density": 0.729,
+    "link_count": 173,
+    "error": null,
+    "sample": "Best Open sort options * [ Best ](/r/popular/best/) * [ Hot ](/r/popular/hot/) * [ New ](/r/popular/new/) * [ Top ](/r/popular/top/) * [ Rising ](/r/popular/rising/) Everywhere Open sort options *...",
+    "api_intercepted": true
+  },
+  {
+    "site": "producthunt",
+    "strategy": "cdp",
+    "latency_s": 14.78,
+    "content_len": 8891,
+    "text_density": 0.743,
+    "link_count": 140,
+    "error": null,
+    "sample": "Welcome to Product Hunt! The place to launch and discover new tech products.Take a tour. # Top Products Launching Today [1\\. MuleRun](/products/mulerun)Raise an AI that actually learns how you work...",
+    "api_intercepted": true
+  },
+  {
+    "site": "github",
+    "strategy": "cdp",
+    "latency_s": 2.85,
+    "content_len": 51609,
+    "text_density": 0.732,
+    "link_count": 1118,
+    "error": null,
+    "sample": "[Explore](/explore) [Topics](/topics) [Trending](/trending) [Collections](/collections) [Events](/events) [GitHub Sponsors](/sponsors/explore) # Trending See what the GitHub community is most...",
+    "api_intercepted": true
+  }
+]

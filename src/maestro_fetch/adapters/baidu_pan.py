@@ -50,6 +50,7 @@ from maestro_fetch.core.result import FetchResult
 _SHARE_PATTERN = r"pan\.baidu\.com/s/"
 _TOKEN_PATH = Path.home() / ".bypy" / "bypy.json"
 _APP_ID = "250528"         # Baidu web client app_id (public)
+# Public OAuth credentials from bypy project (https://github.com/houtianze/bypy)
 _BYPY_CLIENT_ID = "q8WE4EpCsau1oS0MplgMKNBn"   # bypy's registered app
 _BYPY_CLIENT_SECRET = "jXiFMOPVPCWlO2M5CwR6zYpMoYztIAXf"
 

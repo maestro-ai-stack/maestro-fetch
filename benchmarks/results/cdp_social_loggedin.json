@@ -1,0 +1,46 @@
+[
+  {
+    "site": "x.com",
+    "strategy": "cdp",
+    "latency_s": 21.69,
+    "content_len": 2560,
+    "text_density": 0.754,
+    "link_count": 0,
+    "error": null,
+    "sample": "To view keyboard shortcuts, press question mark View keyboard shortcuts Home Explore 2 Notifications Chat Grok Bookmarks Creator Studio Premium Profile More Post Ding Li @kleon_ai For you Following...",
+    "api_intercepted": true
+  },
+  {
+    "site": "reddit",
+    "strategy": "cdp",
+    "latency_s": 3.07,
+    "content_len": 1123,
+    "text_density": 0.824,
+    "link_count": 1,
+    "error": null,
+    "sample": "https://lh3.googleusercontent.com/a-/ALV-UjVvS_a8JEcxlYQaLnTgT7wCfOV2yp0DC72ZJ-YsGTfXTEcAgj9zqG7u7ZXcQLi0lAGpMoxK3hsgubqhxxS8c7g0dgY-...",
+    "api_intercepted": true
+  },
+  {
+    "site": "producthunt",
+    "strategy": "cdp",
+    "latency_s": 3.25,
+    "content_len": 1123,
+    "text_density": 0.794,
+    "link_count": 1,
+    "error": null,
+    "sample": "https://lh3.googleusercontent.com/a-/ALV-UjW3_vVoUWdk-KkgEYiPqG-3AY4vmWfT3ItE6_tzZa5j4SPqO55pkIuVldCHdQqN8G_CwQQV99tc4fzPpxCPc3KZyAdqHX36B2r_jdpjdIlYhXpeO00d8o6-2-XjWh2a4jsP5kcbQN-Nm-...",
+    "api_intercepted": true
+  },
+  {
+    "site": "github",
+    "strategy": "cdp",
+    "latency_s": 2.81,
+    "content_len": 3273,
+    "text_density": 0.726,
+    "link_count": 0,
+    "error": null,
+    "sample": "Skip to content Navigation Menu Platform Solutions Resources Open Source Enterprise Pricing Search or jump to... Sign in Sign up Explore Topics Trending Collections Events GitHub Sponsors Trending...",
+    "api_intercepted": true
+  }
+]

@@ -67,7 +67,7 @@ _LOGIN_WALL_MARKERS = (
     "suite/passport/static/login",   # 飞书 passport 资源路径
     "accounts.google.com/signin",    # Google 登录
     "login.microsoftonline.com",     # Microsoft 登录
-    "sso.bytedance.com",             # 字节 SSO
+    # Add internal SSO domains here
 )
 
 

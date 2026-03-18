@@ -14,3 +14,4 @@ CLAUDE.md
 docs/plans/
 docs/test-urls.md
 cert_key*
+.env*
