@@ -217,17 +217,26 @@ class WebAdapter(BaseAdapter):
     async def fetch(self, url: str, config: FetchConfig) -> FetchResult:
         crawl4ai_error: Exception | None = None
 
-        # --- Pass 1: crawl4ai (JS rendering) ---
+        # --- Pass 1: crawl4ai (JS rendering + content filtering) ---
         try:
-            from crawl4ai import AsyncWebCrawler
+            from crawl4ai import AsyncWebCrawler, CrawlerRunConfig
+            from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
+            from crawl4ai.content_filter_strategy import PruningContentFilter
+
+            _md_gen = DefaultMarkdownGenerator(content_filter=PruningContentFilter())
+            _run_config = CrawlerRunConfig(markdown_generator=_md_gen)
 
             async with AsyncWebCrawler() as crawler:
-                crawl_kwargs: dict = dict(url=url)
+                crawl_kwargs: dict = dict(url=url, config=_run_config)
                 if config.headers:
                     crawl_kwargs["headers"] = config.headers
                 crawl_result = await crawler.arun(**crawl_kwargs)
                 if crawl_result.success:
-                    md = crawl_result.markdown or ""
+                    _md_obj = getattr(crawl_result, "markdown", None)
+                    if _md_obj and hasattr(_md_obj, "fit_markdown"):
+                        md = _md_obj.fit_markdown or _md_obj.raw_markdown or ""
+                    else:
+                        md = crawl_result.markdown or ""
                     if not _is_waf_blocked(md) and not _is_login_wall(md):
                         return FetchResult(
                             url=url,
