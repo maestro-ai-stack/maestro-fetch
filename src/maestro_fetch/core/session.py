@@ -142,6 +142,30 @@ def _get_pid_on_port(port: int) -> int:
     return 0
 
 
+def _kill_stale_playwright_drivers() -> int:
+    """Kill orphaned Playwright driver processes that block CDP connections.
+
+    Returns the number of processes killed.
+    """
+    killed = 0
+    try:
+        out = subprocess.check_output(
+            ["pgrep", "-f", "playwright/driver/package/cli.js run-driver"],
+            text=True, timeout=5,
+        ).strip()
+        for line in out.splitlines():
+            pid = int(line)
+            try:
+                os.kill(pid, signal.SIGTERM)
+                killed += 1
+                log.info("Killed stale Playwright driver PID %d", pid)
+            except (OSError, ProcessLookupError):
+                pass
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        pass  # no matching processes
+    return killed
+
+
 # ---- Public API ----
 
 
@@ -256,12 +280,41 @@ async def start_session(url: str, cdp: bool = False, cdp_port: int = 9222) -> Se
     return state
 
 
-async def connect_page(state: SessionState) -> tuple[Any, Any, Any]:
+async def connect_page(
+    state: SessionState, *, timeout: float = 15.0
+) -> tuple[Any, Any, Any]:
     """Connect to active session, return (playwright_ctx, browser, page).
 
     The caller MUST call disconnect() when done.
     Finds the page whose URL matches the session's target URL domain.
+
+    If the connection hangs (stale Playwright driver blocking CDP), kills
+    orphaned drivers and retries once.
     """
+    import asyncio
+
+    try:
+        return await asyncio.wait_for(
+            _connect_page_inner(state), timeout=timeout
+        )
+    except asyncio.TimeoutError:
+        killed = _kill_stale_playwright_drivers()
+        if killed:
+            log.warning(
+                "connect_page timed out, killed %d stale drivers, retrying", killed
+            )
+            await _async_sleep(1)
+            return await asyncio.wait_for(
+                _connect_page_inner(state), timeout=timeout
+            )
+        raise RuntimeError(
+            f"connect_page timed out after {timeout}s "
+            "(no stale drivers found — Chrome may be unresponsive)"
+        )
+
+
+async def _connect_page_inner(state: SessionState) -> tuple[Any, Any, Any]:
+    """Inner connection logic — separated for timeout wrapping."""
     from urllib.parse import urlparse
 
     from playwright.async_api import async_playwright

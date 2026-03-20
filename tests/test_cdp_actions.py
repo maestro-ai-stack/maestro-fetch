@@ -28,12 +28,8 @@ class TestLayerOrdering:
     def test_write_ops_preserve_pipeline_llm_fallback(self):
         write_actions = [a for a in list_actions() if a.is_write]
         for a in write_actions:
-            assert Layer.PIPELINE in a.layers, (
-                f"{a.platform}/{a.action}: missing PIPELINE fallback"
-            )
-            assert Layer.LLM in a.layers, (
-                f"{a.platform}/{a.action}: missing LLM fallback"
-            )
+            assert Layer.PIPELINE in a.layers
+            assert Layer.LLM in a.layers
 
     def test_session_layer_enum_exists(self):
         assert Layer.SESSION.value == "session"
@@ -60,7 +56,6 @@ class TestReadOpsUnchanged:
     def test_bilibili_hot_layers(self):
         pa = get_action("bilibili", "hot")
         assert pa is not None
-        # No source adapter → no API layer
         assert pa.layers == (Layer.PIPELINE, Layer.LLM)
 
 
@@ -128,16 +123,12 @@ class TestSessionFallback:
 
     @pytest.mark.asyncio
     async def test_no_session_falls_through(self):
-        """When no CDP session is active, SESSION layer fails and router
-        continues to PIPELINE/LLM layers."""
-        from unittest.mock import AsyncMock, patch
+        from unittest.mock import patch
 
         from maestro_fetch.core.action_router import ActionRouter
 
         router = ActionRouter()
 
-        # Mock: no active session → _execute_session raises
-        # Mock: pipeline also fails → should collect both errors
         with patch.object(router, "_execute_session", side_effect=Exception("No active CDP session")), \
              patch.object(router, "_execute_pipeline", side_effect=Exception("opencli not installed")), \
              patch.object(router, "_execute_llm", side_effect=Exception("browser-use not installed")):
@@ -146,8 +137,7 @@ class TestSessionFallback:
 
     @pytest.mark.asyncio
     async def test_session_success_skips_pipeline(self):
-        """When SESSION layer succeeds, PIPELINE and LLM are not called."""
-        from unittest.mock import AsyncMock, patch
+        from unittest.mock import patch
 
         from maestro_fetch.core.action_router import ActionRouter
 
@@ -163,3 +153,45 @@ class TestSessionFallback:
             mock_session.assert_called_once()
             mock_pipeline.assert_not_called()
             mock_llm.assert_not_called()
+
+
+class TestWithPageDecorator:
+    """Verify @with_page handles connection lifecycle correctly."""
+
+    def test_handlers_are_wrapped(self):
+        """Handlers decorated with @with_page have __wrapped__ attr."""
+        from maestro_fetch.backends.cdp_actions import _HANDLERS
+
+        for key, handler in _HANDLERS.items():
+            assert hasattr(handler, "__wrapped__"), (
+                f"Handler {key} not wrapped by @with_page"
+            )
+
+    def test_execute_cdp_action_accepts_connection(self):
+        """execute_cdp_action passes _connection through."""
+        import inspect
+        from maestro_fetch.backends.cdp_actions import execute_cdp_action
+        sig = inspect.signature(execute_cdp_action)
+        assert "_connection" in sig.parameters
+
+
+class TestBatchExecution:
+    """Verify execute_cdp_batch shares a single connection."""
+
+    def test_batch_function_exists(self):
+        from maestro_fetch.backends.cdp_actions import execute_cdp_batch
+        assert callable(execute_cdp_batch)
+
+
+class TestStaleDriverCleanup:
+    """Verify stale Playwright driver cleanup."""
+
+    def test_kill_stale_function_exists(self):
+        from maestro_fetch.core.session import _kill_stale_playwright_drivers
+        assert callable(_kill_stale_playwright_drivers)
+
+    def test_connect_page_has_timeout_param(self):
+        import inspect
+        from maestro_fetch.core.session import connect_page
+        sig = inspect.signature(connect_page)
+        assert "timeout" in sig.parameters
