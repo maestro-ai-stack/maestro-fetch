@@ -10,8 +10,10 @@ from typing import TYPE_CHECKING
 
 from maestro_fetch.backends.base import BrowserBackend
 from maestro_fetch.backends.bb_browser import BbBrowserBackend
+from maestro_fetch.backends.browser_use import BrowserUseBackend
 from maestro_fetch.backends.cdp import CDPBackend
 from maestro_fetch.backends.cloudflare import CloudflareBackend
+from maestro_fetch.backends.opencli import OpencliBackend
 from maestro_fetch.backends.playwright import PlaywrightBackend
 
 if TYPE_CHECKING:
@@ -20,14 +22,16 @@ if TYPE_CHECKING:
 __all__ = [
     "BrowserBackend",
     "BbBrowserBackend",
+    "BrowserUseBackend",
     "CDPBackend",
     "CloudflareBackend",
+    "OpencliBackend",
     "PlaywrightBackend",
     "get_available_backends",
     "get_best_backend",
 ]
 
-_DEFAULT_PRIORITY = ["bb-browser", "cdp", "cloudflare", "playwright"]
+_DEFAULT_PRIORITY = ["bb-browser", "opencli", "cdp", "cloudflare", "playwright", "browser-use"]
 
 
 def _make_backend(name: str, cfg: dict) -> BrowserBackend | None:
@@ -48,6 +52,12 @@ def _make_backend(name: str, cfg: dict) -> BrowserBackend | None:
     if name == "playwright":
         headless = backend_cfg.get("headless", True)
         return PlaywrightBackend(headless=headless)
+    if name == "opencli":
+        return OpencliBackend()
+    if name == "browser-use":
+        model = backend_cfg.get("model", "claude-sonnet-4-20250514")
+        timeout = backend_cfg.get("timeout", 120)
+        return BrowserUseBackend(model=model, timeout=timeout)
     return None
 
 

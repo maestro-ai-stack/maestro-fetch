@@ -20,10 +20,11 @@ from maestro_fetch.sources.loader import (
 
 app = typer.Typer(help="Manage source adapters.")
 
-_SOURCES_REPO = "https://github.com/maestro-ai-stack/maestro-fetch-sources.git"
+_SOURCES_REPO = "https://github.com/maestro-ai-stack/maestro-fetch.git"
 _BASE_DIR = Path.home() / ".maestro-fetch"
 _SOURCES_DIR = _BASE_DIR / "sources"
 _CUSTOM_DIR = _BASE_DIR / "custom"
+_BUNDLED_DIR = Path(__file__).resolve().parent.parent / "sources" / "community"
 
 
 # ---------------------------------------------------------------------------
@@ -31,9 +32,14 @@ _CUSTOM_DIR = _BASE_DIR / "custom"
 # ---------------------------------------------------------------------------
 
 
+def _source_dirs() -> list[Path]:
+    """Return source directories in priority order (custom > external > bundled)."""
+    return [_CUSTOM_DIR, _SOURCES_DIR, _BUNDLED_DIR]
+
+
 def _find_adapter(name: str) -> SourceAdapter | None:
-    """Look up an adapter by name across custom and community dirs."""
-    for directory in [_CUSTOM_DIR, _SOURCES_DIR]:
+    """Look up an adapter by name across custom, external, and bundled dirs."""
+    for directory in _source_dirs():
         adapters = load_sources(directory)
         for adapter in adapters:
             if adapter.meta.name == name:
@@ -44,7 +50,7 @@ def _find_adapter(name: str) -> SourceAdapter | None:
 def _all_adapters() -> list[SourceAdapter]:
     """Return all adapters, custom overriding community by name."""
     seen: dict[str, SourceAdapter] = {}
-    for directory in [_CUSTOM_DIR, _SOURCES_DIR]:
+    for directory in _source_dirs():
         for adapter in load_sources(directory):
             if adapter.meta.name not in seen:
                 seen[adapter.meta.name] = adapter
@@ -86,7 +92,7 @@ def list_sources(
         adapters = [a for a in adapters if a.meta.category == category]
 
     if not adapters:
-        typer.echo("No source adapters found. Run 'mfetch source update' first.")
+        typer.echo("No source adapters found. Try 'mfetch source update' or reinstall.")
         raise typer.Exit(code=0)
 
     # Table header

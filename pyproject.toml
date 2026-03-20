@@ -46,12 +46,16 @@ media = ["yt-dlp>=2024.1", "openai-whisper>=20231117"]
 browser = ["playwright>=1.40"]
 anthropic = ["anthropic>=0.34"]
 openai = ["openai>=1.40"]
+social = ["twikit>=2.0", "praw>=7.7"]
+ai-browser = ["browser-use>=0.2", "langchain-anthropic>=0.3"]
 all = [
     "maestro-fetch[pdf]",
     "maestro-fetch[media]",
     "maestro-fetch[browser]",
     "maestro-fetch[anthropic]",
     "maestro-fetch[openai]",
+    "maestro-fetch[social]",
+    "maestro-fetch[ai-browser]",
 ]
 dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "pytest-mock>=3.14", "ruff>=0.4"]
 

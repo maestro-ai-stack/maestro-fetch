@@ -47,7 +47,25 @@ DEFAULT_CONFIG: dict = {
         "format": "markdown",
     },
     "backends": {
-        "priority": ["bb-browser", "cdp", "cloudflare", "playwright"],
+        "priority": ["bb-browser", "opencli", "cdp", "cloudflare", "playwright", "browser-use"],
+        "opencli": {
+            "enabled": True,
+        },
+        "browser-use": {
+            "enabled": True,
+            "model": "claude-sonnet-4-20250514",
+            "timeout": 120,
+        },
+    },
+    "auth": {
+        "twitter": {
+            "cookies_file": str(BASE_DIR / "auth" / "twitter_cookies.json"),
+        },
+        "reddit": {
+            "client_id": "",
+            "client_secret": "",
+            "user_agent": "maestro-fetch/0.2",
+        },
     },
 }
 

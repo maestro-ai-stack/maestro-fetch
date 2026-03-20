@@ -1,12 +1,17 @@
-"""Interactive browser sessions — `mfetch session start|click|fill|snapshot|screenshot|eval|end`.
+"""Interactive browser sessions — `mfetch session start|click|fill|snapshot|screenshot|eval|action|end`.
 
 Launches a persistent Chromium process with CDP. Subsequent commands
 connect via CDP, perform the action, and disconnect — the browser stays alive.
+
+Platform actions (like, post, repost, etc.) are routed through the
+three-layer ActionRouter instead of being hardcoded.
 """
 from __future__ import annotations
 
 import asyncio
+import json as _json
 from pathlib import Path
+from typing import Optional
 
 import typer
 
@@ -35,7 +40,7 @@ def _require_session():
     return state
 
 
-# ---- Commands ----
+# ---- Generic Commands ----
 
 
 @app.command()
@@ -178,10 +183,8 @@ def eval_js(js: str = typer.Argument(..., help="JavaScript to evaluate")) -> Non
         pw, browser, page = _run(connect_page(state))
         result = _run(page.evaluate(js))
         if result is not None:
-            import json
-
             try:
-                typer.echo(json.dumps(result, indent=2, ensure_ascii=False))
+                typer.echo(_json.dumps(result, indent=2, ensure_ascii=False))
             except (TypeError, ValueError):
                 typer.echo(str(result))
     except Exception as e:
@@ -192,134 +195,91 @@ def eval_js(js: str = typer.Argument(..., help="JavaScript to evaluate")) -> Non
             _run(disconnect(pw, browser))
 
 
+# ---- Platform Action Command (three-layer routing) ----
+
+
 @app.command()
+def action(
+    platform: str = typer.Argument(..., help="Platform name (twitter, reddit, linkedin, ...)"),
+    action_name: str = typer.Argument(..., help="Action to perform (like, post, search, ...)"),
+    args: Optional[list[str]] = typer.Argument(None, help="Additional arguments"),
+) -> None:
+    """Execute a platform action via three-layer routing (API → opencli → browser-use)."""
+    from maestro_fetch.core.action_router import ActionRouter
+
+    router = ActionRouter()
+    action_args = args or []
+
+    # Parse key=value pairs from args into kwargs
+    positional: list[str] = []
+    kwargs: dict[str, str] = {}
+    for arg in action_args:
+        if "=" in arg:
+            k, _, v = arg.partition("=")
+            kwargs[k] = v
+        else:
+            positional.append(arg)
+
+    try:
+        result = _run(router.execute(platform, action_name, *positional, **kwargs))
+        layer = result.get("layer", "unknown")
+        typer.echo(f"[{layer}] {platform}/{action_name} — success")
+
+        # Print result content
+        content = result.get("content") or result.get("result") or result.get("output")
+        if content:
+            typer.echo(content)
+        else:
+            typer.echo(_json.dumps(result, indent=2, ensure_ascii=False, default=str))
+    except Exception as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+# ---- Backward-compatible aliases (hidden) ----
+
+
+@app.command(hidden=True)
+def like(tweet_url: str = typer.Argument(..., help="URL of the tweet to like")) -> None:
+    """Like a tweet on Twitter/X (backward compat → action twitter like)."""
+    action("twitter", "like", [f"url={tweet_url}"])
+
+
+@app.command(hidden=True)
+def bookmark(tweet_url: str = typer.Argument(..., help="URL of the tweet to bookmark")) -> None:
+    """Bookmark a tweet on Twitter/X (backward compat → action twitter bookmark)."""
+    action("twitter", "bookmark", [f"url={tweet_url}"])
+
+
+@app.command(hidden=True)
+def repost(tweet_url: str = typer.Argument(..., help="URL of the tweet to repost")) -> None:
+    """Repost a tweet on Twitter/X (backward compat → action twitter repost)."""
+    action("twitter", "repost", [f"url={tweet_url}"])
+
+
+@app.command(hidden=True)
 def quote(
     tweet_url: str = typer.Argument(..., help="URL of the tweet to quote"),
     text: str = typer.Argument(..., help="Your quote text"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Navigate and fill but don't post"),
 ) -> None:
-    """Quote retweet a tweet on Twitter/X."""
-    state = _require_session()
-    pw = browser = page = None
-    try:
-        pw, browser, page = _run(connect_page(state))
-        _run(_do_quote(page, tweet_url, text, dry_run))
-    except typer.Exit:
-        raise
-    except Exception as e:
-        typer.echo(f"Error quoting tweet: {e}", err=True)
-        raise typer.Exit(code=1)
-    finally:
-        if pw and browser:
-            _run(disconnect(pw, browser))
+    """Quote retweet on Twitter/X (backward compat → action twitter quote)."""
+    action("twitter", "quote", [f"url={tweet_url}", f"text={text}", f"dry_run={dry_run}"])
 
 
-async def _do_quote(page, tweet_url: str, text: str, dry_run: bool) -> None:
-    """Execute the quote retweet flow on Twitter/X."""
-    # Step 1: Navigate to the tweet
-    typer.echo(f"Navigating to {tweet_url}")
-    await page.goto(tweet_url, wait_until="domcontentloaded", timeout=30_000)
-    await page.wait_for_selector("[data-testid='tweet']", timeout=10_000, state="attached")
-    await page.wait_for_timeout(1000)
-
-    # Step 2: Click the retweet button (first one = the tweet itself, not replies)
-    rt_btn = page.locator("[data-testid='retweet']").first
-    await rt_btn.click(timeout=5_000)
-    await page.wait_for_timeout(500)
-
-    # Step 3: Click "Quote" in the dropdown menu
-    quote_item = page.locator("[role='menuitem']").filter(has_text="Quote")
-    await quote_item.click(timeout=5_000)
-    await page.wait_for_timeout(1500)
-
-    # Step 4: Type the quote text (DraftEditor doesn't support fill, use keyboard)
-    editor = page.locator("[data-testid='tweetTextarea_0']").first
-    await editor.click(timeout=5_000)
-    await page.keyboard.type(text, delay=30)
-    await page.wait_for_timeout(500)
-
+@app.command(hidden=True)
+def post(
+    text: str = typer.Argument(..., help="Tweet text"),
+    image: str = typer.Option(None, "--image", "-i", help="Path to image file"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Compose but don't post"),
+) -> None:
+    """Post a tweet on Twitter/X (backward compat → action twitter post)."""
+    args = [f"text={text}"]
+    if image:
+        args.append(f"image={image}")
     if dry_run:
-        typer.echo(f"[dry-run] Quote composed. Text: {text}")
-        typer.echo("Review in browser, then post manually or run without --dry-run")
-        return
-
-    # Step 5: Click Post
-    post_btn = page.locator("[data-testid='tweetButton']")
-    await post_btn.click(timeout=5_000)
-    await page.wait_for_timeout(2000)
-
-    typer.echo(f"Quote posted: {text[:80]}...")
-
-
-@app.command()
-def like(tweet_url: str = typer.Argument(..., help="URL of the tweet to like")) -> None:
-    """Like a tweet on Twitter/X."""
-    state = _require_session()
-    pw = browser = page = None
-    try:
-        pw, browser, page = _run(connect_page(state))
-        _run(_do_tweet_action(page, tweet_url, "like"))
-    except Exception as e:
-        typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(code=1)
-    finally:
-        if pw and browser:
-            _run(disconnect(pw, browser))
-
-
-@app.command()
-def bookmark(tweet_url: str = typer.Argument(..., help="URL of the tweet to bookmark")) -> None:
-    """Bookmark a tweet on Twitter/X."""
-    state = _require_session()
-    pw = browser = page = None
-    try:
-        pw, browser, page = _run(connect_page(state))
-        _run(_do_tweet_action(page, tweet_url, "bookmark"))
-    except Exception as e:
-        typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(code=1)
-    finally:
-        if pw and browser:
-            _run(disconnect(pw, browser))
-
-
-@app.command()
-def repost(tweet_url: str = typer.Argument(..., help="URL of the tweet to repost")) -> None:
-    """Repost (retweet) a tweet on Twitter/X."""
-    state = _require_session()
-    pw = browser = page = None
-    try:
-        pw, browser, page = _run(connect_page(state))
-        _run(_do_tweet_action(page, tweet_url, "repost"))
-    except Exception as e:
-        typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(code=1)
-    finally:
-        if pw and browser:
-            _run(disconnect(pw, browser))
-
-
-async def _do_tweet_action(page, tweet_url: str, action: str) -> None:
-    """Navigate to tweet and perform like/bookmark/repost."""
-    await page.goto(tweet_url, wait_until="domcontentloaded", timeout=30_000)
-    await page.wait_for_selector("[data-testid='tweet']", timeout=10_000, state="attached")
-    await page.wait_for_timeout(800)
-
-    if action == "like":
-        btn = page.locator("[data-testid='like']").first
-        await btn.click(timeout=5_000)
-        typer.echo(f"Liked: {tweet_url}")
-    elif action == "bookmark":
-        btn = page.locator("[data-testid='bookmark']").first
-        await btn.click(timeout=5_000)
-        typer.echo(f"Bookmarked: {tweet_url}")
-    elif action == "repost":
-        btn = page.locator("[data-testid='retweet']").first
-        await btn.click(timeout=5_000)
-        await page.wait_for_timeout(300)
-        confirm = page.locator("[data-testid='retweetConfirm']")
-        await confirm.click(timeout=5_000)
-        typer.echo(f"Reposted: {tweet_url}")
+        args.append("dry_run=true")
+    action("twitter", "post", args)
 
 
 @app.command()
