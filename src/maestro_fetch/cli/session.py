@@ -282,6 +282,82 @@ def post(
     action("twitter", "post", args)
 
 
+# ---- Screen Recording Commands ----
+
+
+@app.command()
+def record(
+    url: str = typer.Argument(..., help="URL to record (local file:// or http)"),
+    duration: float = typer.Option(10.0, "--duration", "-d", help="Recording duration in seconds"),
+    fps: int = typer.Option(30, "--fps", help="Frames per second"),
+    scroll: str = typer.Option("auto", "--scroll", help="Scroll mode: auto, none, script"),
+    scroll_speed: float = typer.Option(1.0, "--scroll-speed", help="Scroll speed multiplier"),
+    width: int = typer.Option(1920, "--width", "-W", help="Viewport width"),
+    height: int = typer.Option(1080, "--height", "-H", help="Viewport height"),
+    output: str = typer.Option("recording.mp4", "--output", "-o", help="Output MP4 path"),
+) -> None:
+    """Record a page as MP4 video (screenshot loop + scroll + ffmpeg)."""
+    from maestro_fetch.core.recorder import RecordConfig, record_page
+
+    config = RecordConfig(
+        url=url,
+        duration=duration,
+        fps=fps,
+        scroll_mode=scroll,  # type: ignore[arg-type]
+        scroll_speed=scroll_speed,
+        width=width,
+        height=height,
+        output=output,
+    )
+
+    typer.echo(f"Recording {url} ({duration}s @ {fps}fps, scroll={scroll})...")
+    try:
+        result = _run(record_page(config))
+        size_mb = result.stat().st_size / (1024 * 1024)
+        typer.echo(f"Recorded: {result} ({size_mb:.1f} MB)")
+    except Exception as e:
+        typer.echo(f"Error recording: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@app.command("record-batch")
+def record_batch_cmd(
+    urls_file: str = typer.Argument(..., help="Text file with URLs (one per line, or name=url)"),
+    duration_per_page: float = typer.Option(5.0, "--duration-per-page", "-d", help="Duration per page"),
+    fps: int = typer.Option(30, "--fps", help="Frames per second"),
+    scroll: str = typer.Option("auto", "--scroll", help="Scroll mode: auto, none, script"),
+    width: int = typer.Option(1920, "--width", "-W", help="Viewport width"),
+    height: int = typer.Option(1080, "--height", "-H", help="Viewport height"),
+    output: str = typer.Option("./clips", "--output", "-o", help="Output directory"),
+) -> None:
+    """Batch-record multiple pages from a URL list file."""
+    from maestro_fetch.core.recorder import record_batch
+
+    urls_path = Path(urls_file)
+    if not urls_path.exists():
+        typer.echo(f"File not found: {urls_file}", err=True)
+        raise typer.Exit(code=1)
+
+    urls = [line.strip() for line in urls_path.read_text().splitlines() if line.strip()]
+    typer.echo(f"Batch recording {len(urls)} pages ({duration_per_page}s each)...")
+
+    try:
+        manifest = _run(record_batch(
+            urls=urls,
+            output_dir=output,
+            duration=duration_per_page,
+            fps=fps,
+            width=width,
+            height=height,
+            scroll_mode=scroll,  # type: ignore[arg-type]
+        ))
+        successful = sum(1 for c in manifest["clips"] if c.get("file"))
+        typer.echo(f"Done: {successful}/{len(urls)} clips recorded → {output}/")
+    except Exception as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
 @app.command()
 def end() -> None:
     """End the active browser session."""
