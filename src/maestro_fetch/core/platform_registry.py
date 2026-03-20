@@ -76,6 +76,11 @@ _register(
     _write("twitter", "repost", opencli_cmd="twitter repost", desc="Retweet"),
     _write("twitter", "quote", opencli_cmd="twitter quote", desc="Quote tweet"),
     _write("twitter", "bookmark", opencli_cmd="twitter bookmark", desc="Bookmark a tweet"),
+    _write("twitter", "unbookmark", desc="Remove a bookmark"),
+    _write("twitter", "reply", opencli_cmd="twitter reply", desc="Reply to a tweet"),
+    _write("twitter", "follow", desc="Follow a user"),
+    _write("twitter", "unfollow", desc="Unfollow a user"),
+    _write("twitter", "delete", desc="Delete a tweet"),
 )
 
 # -- Reddit ----------------------------------------------------------------

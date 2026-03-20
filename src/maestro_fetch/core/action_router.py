@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 class ActionRouter:
-    """Routes platform actions through the three-layer fallback chain."""
+    """Routes platform actions through the four-layer fallback chain."""
 
     def __init__(self, config: dict | None = None) -> None:
         self._config = config or load_config()

@@ -499,7 +499,11 @@ async def _graphql_fetch(page: Any, query_id: str, operation: str, variables: di
         "responsive_web_enhance_cards_enabled": False,
     })
 
-    url = f"https://x.com/i/api/graphql/{query_id}/{operation}?variables={encoded_vars}&features={features}"
+    from urllib.parse import quote
+    url = (
+        f"https://x.com/i/api/graphql/{query_id}/{operation}"
+        f"?variables={quote(encoded_vars)}&features={quote(features)}"
+    )
 
     js = """
     async ([url, headers]) => {
@@ -535,10 +539,11 @@ async def twitter_search(page: Any, *, query: str = "", count: int = 20, **kw: A
             except Exception:
                 pass
 
+    from urllib.parse import quote_plus
     page.on("response", capture_response)
-    search_url = f"https://x.com/search?q={query}&src=typed_query"
-    await page.goto(search_url, wait_until="domcontentloaded")
-    await asyncio.sleep(3)
+    search_url = f"https://x.com/search?q={quote_plus(query)}&src=typed_query"
+    await _navigate(page, search_url, wait_selector='[data-testid="tweet"]')
+    await asyncio.sleep(2)
     page.remove_listener("response", capture_response)
 
     return {

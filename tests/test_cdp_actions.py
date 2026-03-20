@@ -108,14 +108,12 @@ class TestActionDispatch:
                 f"Missing CDP handler: {platform}/{action}"
             )
 
-    def test_unknown_action_raises(self):
+    @pytest.mark.asyncio
+    async def test_unknown_action_raises(self):
         from maestro_fetch.backends.cdp_actions import execute_cdp_action
 
         with pytest.raises(NotImplementedError, match="No CDP handler"):
-            import asyncio
-            asyncio.get_event_loop().run_until_complete(
-                execute_cdp_action(None, "unknown_platform", "unknown_action")
-            )
+            await execute_cdp_action(None, "unknown_platform", "unknown_action")
 
 
 class TestSessionFallback:

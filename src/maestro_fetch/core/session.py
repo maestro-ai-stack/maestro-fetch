@@ -336,10 +336,9 @@ async def _connect_page_inner(state: SessionState) -> tuple[Any, Any, Any]:
     return pw, browser, page
 
 
-async def disconnect(pw: Any, browser: Any) -> None:
-    """Disconnect from CDP without closing the browser."""
+async def disconnect(pw: Any, browser: Any) -> None:  # noqa: ARG001
+    """Disconnect Playwright without closing the browser (it stays running)."""
     try:
-        browser.close  # just ensure no close is called
         await pw.stop()
     except Exception:
         pass
