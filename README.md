@@ -380,7 +380,7 @@ Any URI scheme → `mfetch <uri>` → clean structured output.
 
 **Core improvements** -- open issues and PRs on this repo.
 
-**New source adapters** -- contribute to [maestro-ai-stack/maestro-fetch-sources](https://github.com/maestro-ai-stack/maestro-fetch-sources). Each adapter is a single Python file with an `@meta` header and an `async def run(ctx, ...)` function.
+**New source adapters** -- add a Python file to `src/maestro_fetch/sources/community/`. Each adapter is a single file with an `@meta` header and an `async def run(ctx, ...)` function.
 
 ---
 
