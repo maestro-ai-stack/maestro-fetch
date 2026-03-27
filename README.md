@@ -1,13 +1,21 @@
-# maestro-fetch
+<p align="center">
+  <img src=".github/maestro-logo.png" alt="Maestro" width="120" />
+</p>
 
-**One interface. Any source. Agent-ready output.**
+<h1 align="center">maestro-fetch</h1>
 
-[![PyPI version](https://img.shields.io/pypi/v/maestro-fetch.svg)](https://pypi.org/project/maestro-fetch/)
-[![Downloads](https://static.pepy.tech/badge/maestro-fetch/month)](https://pepy.tech/project/maestro-fetch)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
-[![CI](https://img.shields.io/github/actions/workflow/status/maestro-ai-stack/maestro-fetch/ci.yml?label=CI)](https://github.com/maestro-ai-stack/maestro-fetch/actions)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Skills Ecosystem](https://img.shields.io/badge/skills-ecosystem-blueviolet)](https://github.com/anthropics/skills)
+<p align="center">
+  <strong>One interface. Any source. Agent-ready output.</strong>
+</p>
+
+<p align="center">
+  <a href="https://pypi.org/project/maestro-fetch/"><img src="https://img.shields.io/pypi/v/maestro-fetch.svg" alt="PyPI version" /></a>
+  <a href="https://pepy.tech/project/maestro-fetch"><img src="https://static.pepy.tech/badge/maestro-fetch/month" alt="Downloads" /></a>
+  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.11%2B-blue.svg" alt="Python 3.11+" /></a>
+  <a href="https://github.com/maestro-ai-stack/maestro-fetch/actions"><img src="https://img.shields.io/github/actions/workflow/status/maestro-ai-stack/maestro-fetch/ci.yml?label=CI" alt="CI" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License: MIT" /></a>
+  <a href="https://github.com/anthropics/skills"><img src="https://img.shields.io/badge/skills-ecosystem-blueviolet" alt="Skills Ecosystem" /></a>
+</p>
 
 Give it any URL -- web page, PDF, spreadsheet, cloud file, video, binary dataset -- and get back clean markdown or structured data. Smart routing picks the right adapter; pluggable browser backends handle anti-bot and authentication. No API key required.
 
@@ -382,4 +390,6 @@ MIT
 
 ---
 
-Built by [Maestro](https://maestro.onl) -- Singapore AI product studio.
+<p align="center">
+  Built by <a href="https://maestro.onl">Maestro</a> — Singapore AI product studio.
+</p>
