@@ -153,11 +153,17 @@ async def _insert_text(page: Any, selector: str, text: str) -> None:
     await page.click(selector)
     await asyncio.sleep(0.2)
 
-    # Try execCommand first (fast, works for replies/quotes)
-    await page.evaluate(
-        """(text) => document.execCommand('insertText', false, text)""",
-        text,
-    )
+    # Insert text line-by-line so newlines become real line breaks
+    # (execCommand('insertText') ignores \n in contenteditable)
+    lines = text.split("\n")
+    for i, line in enumerate(lines):
+        if line:
+            await page.evaluate(
+                """(text) => document.execCommand('insertText', false, text)""",
+                line,
+            )
+        if i < len(lines) - 1:
+            await page.keyboard.press("Enter")
     await asyncio.sleep(0.5)
 
     # Check if any Post button became enabled
@@ -179,10 +185,14 @@ async def _insert_text(page: Any, selector: str, text: str) -> None:
     await page.keyboard.press("Backspace")
     await asyncio.sleep(0.3)
 
-    # Re-click and use keyboard.type() which fires proper input events
+    # Re-click and use keyboard input which fires proper React events
     await page.click(selector)
     await asyncio.sleep(0.2)
-    await page.keyboard.type(text, delay=10)
+    for i, line in enumerate(lines):
+        if line:
+            await page.keyboard.type(line, delay=10)
+        if i < len(lines) - 1:
+            await page.keyboard.press("Enter")
 
 
 async def _get_cookies_dict(page: Any) -> dict[str, str]:

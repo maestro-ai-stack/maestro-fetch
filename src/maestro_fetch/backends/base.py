@@ -13,7 +13,7 @@ from typing import Any, Protocol, runtime_checkable
 class BrowserBackend(Protocol):
     """Contract for browser backends.
 
-    Implementations: bb_browser, cloudflare, playwright.
+    Implementations: extension, cdp, playwright.
     The router iterates backends by config priority and uses the first
     one where ``is_available()`` returns True.
     """

@@ -37,8 +37,8 @@ class BrowserAdapter(BaseAdapter):
         if not backends:
             raise FetchError(
                 "No browser backends available. "
-                "Install bb-browser, configure Cloudflare, or "
-                "pip install maestro-fetch[browser] for Playwright."
+                "Install the Chrome extension, run Chrome with --remote-debugging-port=9222, "
+                "or pip install maestro-fetch[browser] for Playwright."
             )
 
         last_error: Exception | None = None

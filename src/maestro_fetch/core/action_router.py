@@ -1,13 +1,12 @@
-"""Four-layer action router for social platform operations.
+"""Three-layer action router for social platform operations.
 
 Routing strategy:
   Layer 1 (API)      — twikit/praw, READ only, fast, no browser
-  Layer 2 (Session)  — active CDP session, Playwright selectors, WRITE first
-  Layer 3 (Pipeline) — opencli YAML pipelines, READ+WRITE, 19+ sites
-  Layer 4 (LLM)      — browser-use, universal fallback
+  Layer 2 (Session)  — active CDP/extension session, WRITE first
+  Layer 3 (LLM)      — browser-use, universal fallback
 
 Write operations skip Layer 1, try Session first.
-Unregistered platform+action combos go directly to Layer 4.
+Unregistered platform+action combos go directly to Layer 3.
 """
 from __future__ import annotations
 
@@ -134,34 +133,29 @@ class ActionRouter:
         result = await run_adapter(adapter, ctx, **kwargs)
         return {"success": True, "layer": "api", **result}
 
-    # -- Layer 2: Pipeline (opencli) ------------------------------------
+    # -- Layer 2: Pipeline (extension) ------------------------------------
 
     async def _execute_pipeline(
         self, pa: PlatformAction, *args: str, **kwargs: Any
     ) -> dict:
-        """Execute via opencli YAML pipeline."""
-        from maestro_fetch.backends.opencli import OpencliBackend
+        """Execute via Chrome extension backend."""
+        from maestro_fetch.backends.extension import ExtensionBackend
 
-        backend = OpencliBackend()
+        backend = ExtensionBackend()
         if not await backend.is_available():
-            raise FetchError("opencli is not installed")
+            raise FetchError("Extension backend is not available")
 
-        # Build the opencli command
-        if pa.opencli_command:
-            parts = pa.opencli_command.split()
-            site = parts[0]
-            command = parts[1] if len(parts) > 1 else pa.action
-        else:
-            site = pa.platform
-            command = pa.action
+        # Navigate to URL if provided
+        url = kwargs.get("url")
+        if url:
+            await backend.navigate(url)
 
-        # Pass positional args as the first kwarg value
-        extra_kwargs = dict(kwargs)
-        if args:
-            extra_kwargs["args"] = " ".join(args)
-
-        result = await backend.run_pipeline(site, command, **extra_kwargs)
-        return {"success": True, "layer": "pipeline", **result}
+        # Execute site-specific JS via extension
+        site = pa.platform
+        action_name = pa.action
+        adapter_key = f"{site}/{action_name}"
+        result = await backend.site_adapter(adapter_key, *(args or ()))
+        return {"success": True, "layer": "extension", **result}
 
     # -- Layer 3: LLM (browser-use) -------------------------------------
 

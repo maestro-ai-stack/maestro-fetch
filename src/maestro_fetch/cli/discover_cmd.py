@@ -1,11 +1,11 @@
-"""``mfetch discover <url>`` — discover site APIs via opencli explore + synthesize."""
+"""``mfetch discover <url>`` — discover site content via extension backend."""
 from __future__ import annotations
 
 import asyncio
 
 import typer
 
-app = typer.Typer(help="Discover site APIs and available commands.")
+app = typer.Typer(help="Discover site content and structure.")
 
 
 def _run(coro):
@@ -15,42 +15,27 @@ def _run(coro):
 @app.callback(invoke_without_command=True)
 def discover(
     url: str = typer.Argument(..., help="URL to explore"),
-    task: str = typer.Option(None, "--task", "-t", help="Optional task for pipeline synthesis"),
 ) -> None:
-    """Discover available APIs and commands for a website via opencli."""
-    from maestro_fetch.backends.opencli import OpencliBackend
+    """Fetch and explore a URL via the extension backend."""
+    from maestro_fetch.backends.extension import ExtensionBackend
 
-    backend = OpencliBackend()
+    backend = ExtensionBackend()
 
     if not _run(backend.is_available()):
-        typer.echo("opencli is not installed. Install with: npm install -g @jackwener/opencli", err=True)
+        typer.echo(
+            "Extension backend not available. "
+            "Ensure Chrome is running with the maestro-fetch extension.",
+            err=True,
+        )
         raise typer.Exit(code=1)
 
-    typer.echo(f"Exploring {url}...")
+    typer.echo(f"Fetching {url} via extension...")
     try:
-        result = _run(backend.explore(url))
-        output = result.get("output", "")
-        if output:
-            typer.echo(output)
+        content = _run(backend.fetch_content(url))
+        if content:
+            typer.echo(content)
         else:
-            import json
-
-            typer.echo(json.dumps(result, indent=2, ensure_ascii=False))
+            typer.echo("No content returned", err=True)
     except Exception as e:
-        typer.echo(f"Error exploring: {e}", err=True)
+        typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1)
-
-    if task:
-        typer.echo(f"\nSynthesizing pipeline for: {task}")
-        try:
-            syn_result = _run(backend.synthesize(url, task))
-            syn_output = syn_result.get("output", "")
-            if syn_output:
-                typer.echo(syn_output)
-            else:
-                import json
-
-                typer.echo(json.dumps(syn_result, indent=2, ensure_ascii=False))
-        except Exception as e:
-            typer.echo(f"Error synthesizing: {e}", err=True)
-            raise typer.Exit(code=1)

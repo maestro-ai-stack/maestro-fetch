@@ -1,8 +1,11 @@
 """CLI entry point for maestro-fetch.
 
-Registers all subcommand groups and the default fetch command.
+Registers all subcommand groups. The default command (no subcommand)
+fetches a URL directly: ``mfetch <url>`` is equivalent to ``mfetch main <url>``.
 """
 from __future__ import annotations
+
+import sys
 
 import typer
 
@@ -26,8 +29,20 @@ app.add_typer(source_app, name="source", help="Manage source adapters.")
 app.add_typer(session_app, name="session", help="Interactive browser sessions.")
 app.add_typer(cache_app, name="cache", help="Cache management.")
 app.add_typer(config_app, name="config", help="Configuration management.")
-app.add_typer(discover_app, name="discover", help="Discover site APIs via opencli.")
+app.add_typer(discover_app, name="discover", help="Discover site content via extension.")
 app.add_typer(do_app, name="do", help="Natural language browser tasks.")
 
-# Register the default fetch command directly on the main app
+# Register the default fetch command as "main" subcommand
 app.registered_commands += fetch_app.registered_commands
+
+# Known subcommand names
+_SUBCOMMANDS = {"source", "session", "cache", "config", "discover", "do", "main"}
+
+
+def run() -> None:
+    """Entry point that auto-inserts 'main' when first arg looks like a URL."""
+    args = sys.argv[1:]
+    if args and args[0] not in _SUBCOMMANDS and not args[0].startswith("-"):
+        # First arg is not a subcommand or flag — treat as URL, insert "main"
+        sys.argv.insert(1, "main")
+    app()

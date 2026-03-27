@@ -35,7 +35,7 @@ DEFAULT_CONFIG: dict = {
         "max_size": "5GB",
     },
     "browser": {
-        "bb_browser": True,
+        "extension": True,
         "playwright": True,
     },
     "sources": {
@@ -47,12 +47,15 @@ DEFAULT_CONFIG: dict = {
         "format": "markdown",
     },
     "backends": {
-        "priority": ["bb-browser", "opencli", "cdp", "cloudflare", "playwright", "browser-use"],
-        "opencli": {
+        "priority": ["extension", "cdp", "playwright"],
+        "extension": {
             "enabled": True,
+            "port": 19825,
+            "workspace": "mfetch",
+            "daemon_binary": "opencli-rs",
         },
         "browser-use": {
-            "enabled": True,
+            "enabled": False,
             "model": "claude-sonnet-4-20250514",
             "timeout": 120,
         },
@@ -121,7 +124,7 @@ def write_default_config(path: Path | None = None) -> Path:
         'max_size = "5GB"',
         "",
         "[browser]",
-        "bb_browser = true",
+        "extension = true",
         "playwright = true",
         "",
         "[sources]",
@@ -133,7 +136,13 @@ def write_default_config(path: Path | None = None) -> Path:
         'format = "markdown"',
         "",
         "[backends]",
-        'priority = ["bb-browser", "cdp", "cloudflare", "playwright"]',
+        'priority = ["extension", "cdp", "playwright"]',
+        "",
+        "[backends.extension]",
+        "enabled = true",
+        "port = 19825",
+        'workspace = "mfetch"',
+        'daemon_binary = "opencli-rs"',
         "",
     ]
     dest.write_text("\n".join(lines) + "\n", encoding="utf-8")

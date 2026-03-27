@@ -1,24 +1,22 @@
-"""WebAdapter: fetches JS-rendered web pages via Crawl4AI, outputs Markdown.
+"""WebAdapter: fetches web pages via browser backends or httpx, outputs Markdown.
 
 Responsibility: handle generic web URLs (HTML pages, JS-rendered SPAs).
-Non-goals: PDF, spreadsheets, cloud storage, media -- those are excluded
-via _NON_WEB_PATTERNS and handled by dedicated adapters.
+Non-goals: PDF, spreadsheets, cloud storage, media -- handled by dedicated adapters.
 
-Invariants:
-- supports() returns False for URLs matching known non-web patterns
-- fetch() always returns FetchResult with source_type="web"
-- fetch() raises DownloadError only when crawl4ai, httpx, AND playwright-stealth all fail
-- crawl4ai is tried first (handles JS-rendered SPAs); on timeout/nav error,
-  falls back to httpx plain GET + html2text (handles static/government sites
-  that block headless browsers); if httpx returns a WAF block page (Incapsula etc.),
-  falls back to playwright-stealth (handles anti-bot protected pages)
+Strategy (4-tier fallback):
+    1. Extension backend (real Chrome via daemon + extension) -- auth, JS, cookies
+    2. CDP backend (Chrome with --remote-debugging-port) -- auth, no extension
+    3. httpx plain GET -- fastest, static pages
+    4. playwright-stealth -- WAF/anti-bot bypass, headless fallback
 """
 from __future__ import annotations
+
 import re
+
 from maestro_fetch.adapters.base import BaseAdapter
 from maestro_fetch.core.config import FetchConfig
-from maestro_fetch.core.result import FetchResult
 from maestro_fetch.core.errors import DownloadError
+from maestro_fetch.core.result import FetchResult
 
 _NON_WEB_PATTERNS = [
     r"dropbox\.com/",
@@ -30,70 +28,61 @@ _NON_WEB_PATTERNS = [
     r"\.(xlsx|xls|ods|csv)(\?|$)",
 ]
 
-# User-agent used for httpx fallback (static GET).
-# Mimics a real browser to avoid bot-detection on government sites.
 _FALLBACK_UA = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
     "AppleWebKit/537.36 (KHTML, like Gecko) "
     "Chrome/124.0.0.0 Safari/537.36"
 )
 
-# crawl4ai raises these exception types on navigation timeout / browser errors.
-# Checked by substring on the exception class name to avoid hard import of
-# playwright internals.
-_CRAWL4AI_TRANSIENT_PATTERNS = (
-    "timeout",
-    "TimeoutError",
-    "NavigationError",
-    "Page.goto",
-)
-
-# Markers in response body that indicate WAF/anti-bot blocking (not real content).
 _WAF_BLOCK_MARKERS = (
     "Incapsula incident ID",
     "Request unsuccessful",
     "_Incapsula_Resource",
-    "visitorId",          # Cloudflare challenge
+    "visitorId",
     "cf-browser-verification",
     "Enable JavaScript and cookies",
-    "Just a moment",       # Cloudflare 5-second page
+    "Just a moment",
     "Access Denied",
 )
 
-# 登录墙标记：内容命中这些说明需要认证（CDP 可解决）
 _LOGIN_WALL_MARKERS = (
-    "Feishu, first choice",          # 飞书登录页（英文）
-    "飞书，先进企业协作与管理平台",       # 飞书登录页（中文）
-    "suite/passport/static/login",   # 飞书 passport 资源路径
-    "accounts.google.com/signin",    # Google 登录
-    "login.microsoftonline.com",     # Microsoft 登录
-    # Add internal SSO domains here
+    "Feishu, first choice",
+    "飞书，先进企业协作与管理平台",
+    "suite/passport/static/login",
+    "accounts.google.com/signin",
+    "login.microsoftonline.com",
 )
 
 
-def _is_crawl4ai_transient(exc: Exception) -> bool:
-    """Return True when the exception looks like a crawl4ai navigation failure."""
-    msg = f"{type(exc).__name__}: {exc}".lower()
-    return any(p.lower() in msg for p in _CRAWL4AI_TRANSIENT_PATTERNS)
-
-
 def _is_waf_blocked(content: str) -> bool:
-    """Return True when the response body looks like a WAF block page."""
     return any(marker in content for marker in _WAF_BLOCK_MARKERS)
 
 
 def _is_login_wall(content: str) -> bool:
-    """Return True when the content looks like a login/SSO redirect page."""
     return any(marker in content for marker in _LOGIN_WALL_MARKERS)
 
 
-async def _cdp_fetch(url: str, config: FetchConfig) -> str | None:
-    """尝试通过 CDP 连接已运行的 Chrome 抓取页面。
+async def _extension_fetch(url: str, config: FetchConfig) -> str | None:  # noqa: ARG001
+    """Try fetching via the Chrome extension backend."""
+    try:
+        from maestro_fetch.backends.extension import ExtensionBackend
 
-    成功返回 markdown 内容，CDP 不可用或失败返回 None。
-    """
+        backend = ExtensionBackend()
+        if not await backend.is_available():
+            return None
+        content = await backend.fetch_content(url)
+        if content and len(content) > 200 and not _is_login_wall(content):
+            return content
+        return None
+    except Exception:
+        return None
+
+
+async def _cdp_fetch(url: str, config: FetchConfig) -> str | None:  # noqa: ARG001
+    """Try fetching via CDP (Chrome with --remote-debugging-port)."""
     try:
         from maestro_fetch.backends.cdp import CDPBackend
+
         backend = CDPBackend()
         if not await backend.is_available():
             return None
@@ -105,13 +94,43 @@ async def _cdp_fetch(url: str, config: FetchConfig) -> str | None:
         return None
 
 
-async def _playwright_stealth_fetch(url: str, config: FetchConfig) -> str:
-    """Fetch url using playwright-stealth to bypass anti-bot WAFs (Incapsula, Cloudflare).
+async def _httpx_fetch(url: str, config: FetchConfig) -> str:
+    """Fetch with httpx and convert HTML to Markdown."""
+    try:
+        import httpx
+    except ImportError as exc:
+        raise ImportError(
+            "httpx is required for WebAdapter: pip install httpx"
+        ) from exc
 
-    Invariants:
-    - Returns str (Markdown via html2text, or raw text fallback)
-    - Raises DownloadError on browser failure or empty body
-    """
+    headers = {"User-Agent": _FALLBACK_UA}
+    if config.headers:
+        headers.update(config.headers)
+
+    try:
+        async with httpx.AsyncClient(
+            follow_redirects=True,
+            timeout=config.timeout or 60,
+        ) as client:
+            resp = await client.get(url, headers=headers)
+            resp.raise_for_status()
+            html = resp.text
+    except Exception as exc:
+        raise DownloadError(f"httpx fetch failed for {url}: {exc}") from exc
+
+    try:
+        import html2text
+
+        h = html2text.HTML2Text()
+        h.ignore_links = False
+        h.ignore_images = True
+        return h.handle(html)
+    except ImportError:
+        return re.sub(r"<[^>]+>", " ", html)
+
+
+async def _playwright_stealth_fetch(url: str, config: FetchConfig) -> str:
+    """Fetch with playwright-stealth to bypass WAF/anti-bot."""
     try:
         from playwright.async_api import async_playwright
         from playwright_stealth import stealth_async
@@ -120,12 +139,6 @@ async def _playwright_stealth_fetch(url: str, config: FetchConfig) -> str:
             "playwright and playwright-stealth are required: "
             "pip install playwright playwright-stealth && playwright install chromium"
         ) from exc
-
-    try:
-        import html2text as _html2text
-        _h2t_available = True
-    except ImportError:
-        _h2t_available = False
 
     timeout_ms = int((config.timeout or 60) * 1000)
 
@@ -140,128 +153,58 @@ async def _playwright_stealth_fetch(url: str, config: FetchConfig) -> str:
 
         try:
             await page.goto(url, timeout=timeout_ms, wait_until="domcontentloaded")
-            # Give JS a moment to render dynamic content
             await page.wait_for_timeout(2000)
             html = await page.content()
         except Exception as exc:
             await browser.close()
-            raise DownloadError(f"playwright-stealth navigation failed for {url}: {exc}") from exc
+            raise DownloadError(
+                f"playwright-stealth failed for {url}: {exc}"
+            ) from exc
 
         await browser.close()
 
     if not html or len(html) < 200:
         raise DownloadError(f"playwright-stealth returned empty body for {url}")
 
-    if _h2t_available:
-        h = _html2text.HTML2Text()
-        h.ignore_links = False
-        h.ignore_images = True
-        return h.handle(html)
-    return re.sub(r"<[^>]+>", " ", html)
-
-
-async def _httpx_fetch(url: str, config: FetchConfig) -> str:
-    """Fetch url with httpx and convert HTML to Markdown via html2text.
-
-    Invariants:
-    - Always returns a str (empty on empty body)
-    - Raises DownloadError on HTTP error or network failure
-    """
-    try:
-        import httpx
-    except ImportError as exc:
-        raise ImportError("httpx is required for WebAdapter fallback: pip install httpx") from exc
-
-    headers = {"User-Agent": _FALLBACK_UA}
-    if config.headers:
-        headers.update(config.headers)
-
-    try:
-        async with httpx.AsyncClient(
-            follow_redirects=True,
-            timeout=config.timeout or 60,
-        ) as client:
-            resp = await client.get(url, headers=headers)
-            resp.raise_for_status()
-            html = resp.text
-    except httpx.HTTPStatusError as exc:
-        raise DownloadError(f"HTTP {exc.response.status_code} for {url}") from exc
-    except Exception as exc:
-        raise DownloadError(f"httpx fetch failed for {url}: {exc}") from exc
-
-    # Convert HTML -> Markdown; fall back to raw text if html2text not installed.
     try:
         import html2text
+
         h = html2text.HTML2Text()
         h.ignore_links = False
         h.ignore_images = True
         return h.handle(html)
     except ImportError:
-        # Strip tags manually as a last resort.
         return re.sub(r"<[^>]+>", " ", html)
 
 
 class WebAdapter(BaseAdapter):
-    """Fetches web pages via Crawl4AI with CDP/httpx/stealth fallback.
+    """Fetches web pages with 4-tier fallback.
 
     Strategy:
-      1. Try crawl4ai (headless browser) -- best for JS-rendered SPAs
-      1.5. On login wall/WAF, try CDP (已登录 Chrome) -- best for内网/飞书
-      2. Fall back to httpx plain GET (static/government sites)
-      3. Fall back to playwright-stealth (anti-bot WAF bypass)
+        1. Extension (real Chrome via daemon) -- auth, JS, cookies
+        2. CDP (Chrome with debug port) -- auth, no extension needed
+        3. httpx plain GET -- fastest, works everywhere
+        4. playwright-stealth -- WAF/anti-bot bypass
     """
 
     def supports(self, url: str) -> bool:
         return not any(re.search(p, url, re.IGNORECASE) for p in _NON_WEB_PATTERNS)
 
     async def fetch(self, url: str, config: FetchConfig) -> FetchResult:
-        crawl4ai_error: Exception | None = None
+        errors: dict[str, str] = {}
 
-        # --- Pass 1: crawl4ai (JS rendering + content filtering) ---
-        try:
-            from crawl4ai import AsyncWebCrawler, CrawlerRunConfig
-            from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
-            from crawl4ai.content_filter_strategy import PruningContentFilter
+        # --- Tier 1: Extension (real Chrome) ---
+        ext_content = await _extension_fetch(url, config)
+        if ext_content:
+            return FetchResult(
+                url=url,
+                source_type="web",
+                content=ext_content,
+                tables=[],
+                metadata={"adapter": "extension"},
+            )
 
-            _md_gen = DefaultMarkdownGenerator(content_filter=PruningContentFilter())
-            _run_config = CrawlerRunConfig(markdown_generator=_md_gen)
-
-            async with AsyncWebCrawler() as crawler:
-                crawl_kwargs: dict = dict(url=url, config=_run_config)
-                if config.headers:
-                    crawl_kwargs["headers"] = config.headers
-                crawl_result = await crawler.arun(**crawl_kwargs)
-                if crawl_result.success:
-                    _md_obj = getattr(crawl_result, "markdown", None)
-                    if _md_obj and hasattr(_md_obj, "fit_markdown"):
-                        md = _md_obj.fit_markdown or _md_obj.raw_markdown or ""
-                    else:
-                        md = crawl_result.markdown or ""
-                    if not _is_waf_blocked(md) and not _is_login_wall(md):
-                        return FetchResult(
-                            url=url,
-                            source_type="web",
-                            content=md,
-                            tables=[],
-                            metadata={"adapter": "crawl4ai"},
-                        )
-                    # WAF 或登录墙 -- 尝试 CDP 再 fallback
-                    crawl4ai_error = DownloadError(
-                        f"WAF/login wall detected (crawl4ai) for {url}"
-                    )
-                else:
-                    # crawl4ai returned success=False -- treat as transient
-                    crawl4ai_error = DownloadError(f"Crawl4AI failed for {url}")
-        except ImportError:
-            # crawl4ai not installed; skip directly to httpx fallback.
-            pass
-        except Exception as exc:
-            if not _is_crawl4ai_transient(exc):
-                # Non-transient crawl4ai error (e.g. bad URL scheme) -- re-raise.
-                raise DownloadError(f"Web fetch failed for {url}: {exc}") from exc
-            crawl4ai_error = exc
-
-        # --- Pass 1.5: CDP (复用已登录 Chrome) ---
+        # --- Tier 2: CDP (Chrome with debug port) ---
         cdp_content = await _cdp_fetch(url, config)
         if cdp_content:
             return FetchResult(
@@ -269,11 +212,10 @@ class WebAdapter(BaseAdapter):
                 source_type="web",
                 content=cdp_content,
                 tables=[],
-                metadata={"adapter": "cdp", "crawl4ai_error": str(crawl4ai_error)},
+                metadata={"adapter": "cdp"},
             )
 
-        # --- Pass 2: httpx plain GET fallback ---
-        httpx_error: Exception | None = None
+        # --- Tier 3: httpx plain GET ---
         try:
             content = await _httpx_fetch(url, config)
             if not _is_waf_blocked(content):
@@ -282,16 +224,13 @@ class WebAdapter(BaseAdapter):
                     source_type="web",
                     content=content,
                     tables=[],
-                    metadata={"adapter": "httpx", "crawl4ai_error": str(crawl4ai_error)},
+                    metadata={"adapter": "httpx"},
                 )
-            # WAF block page detected -- escalate to playwright-stealth
-            httpx_error = DownloadError(f"WAF block detected for {url}")
-        except DownloadError as exc:
-            httpx_error = exc
-        except Exception as exc:
-            raise DownloadError(f"Web fetch failed for {url}: {exc}") from exc
+            errors["httpx"] = "WAF block detected"
+        except (DownloadError, ImportError) as exc:
+            errors["httpx"] = str(exc)
 
-        # --- Pass 3: playwright-stealth (WAF bypass) ---
+        # --- Tier 4: playwright-stealth (WAF bypass) ---
         try:
             content = await _playwright_stealth_fetch(url, config)
             return FetchResult(
@@ -299,14 +238,10 @@ class WebAdapter(BaseAdapter):
                 source_type="web",
                 content=content,
                 tables=[],
-                metadata={
-                    "adapter": "playwright-stealth",
-                    "crawl4ai_error": str(crawl4ai_error),
-                    "httpx_error": str(httpx_error),
-                },
+                metadata={"adapter": "playwright-stealth", "errors": errors},
             )
         except (DownloadError, ImportError) as exc:
+            errors["playwright-stealth"] = str(exc)
             raise DownloadError(
-                f"All fetch strategies failed for {url}: "
-                f"crawl4ai={crawl4ai_error}, httpx={httpx_error}, playwright-stealth={exc}"
+                f"All fetch strategies failed for {url}: {errors}"
             ) from exc
