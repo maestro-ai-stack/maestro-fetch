@@ -31,7 +31,17 @@ Works with: **Claude Code** | **Cursor** | **Codex** | **Gemini CLI** | **OpenCo
 ### For Developers
 
 ```bash
+# Recommended (global command, no venv needed)
+uv tool install maestro-fetch
+
+# Or with all extras (PDF, media, browser, LLM, social)
+uv tool install "maestro-fetch[all]"
+
+# Classic pip
 pip install maestro-fetch
+```
+
+```bash
 mfetch "https://example.com"
 ```
 
