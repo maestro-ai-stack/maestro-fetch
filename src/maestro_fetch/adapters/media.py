@@ -27,6 +27,8 @@ _MEDIA_PATTERNS = [
     r"youtube\.com/watch",
     r"youtu\.be/",
     r"vimeo\.com/\d+",
+    r"bilibili\.com/video/",
+    r"tiktok\.com/.+/video/",
 ]
 
 
