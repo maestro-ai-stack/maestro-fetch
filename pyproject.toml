@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "maestro-fetch"
-version = "0.2.7"
+version = "0.3.0"
 description = "Fetch everything, for agents. Universal data acquisition with smart routing."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -25,6 +25,7 @@ dependencies = [
     "pandas>=2.2",
     "aiofiles>=23.0",
     "aiosqlite>=0.20",
+    "chardet>=5.0",
     "tomli>=2.0; python_version<'3.11'",
 ]
 

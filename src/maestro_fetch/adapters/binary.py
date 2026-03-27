@@ -50,6 +50,9 @@ _BINARY_PATTERNS = [
 
 _CHUNK_SIZE = 1 * 1024 * 1024  # 1 MB chunks
 
+# Dataset formats that get a schema/head preview after download
+_PREVIEWABLE = {".parquet", ".dta", ".feather", ".arrow", ".orc"}
+
 # Default user-agent for binary downloads.
 # Wikimedia and many CDNs block generic or missing UAs, or rate-limit them.
 # Wikimedia recommends the format: ClientName/Version (contact_info)
@@ -86,6 +89,50 @@ def _embedded_filename(url: str) -> str:
     return ""
 
 
+def _generate_preview(path, filename: str) -> tuple[str, list]:
+    """Generate schema + head preview for dataset files. Returns (markdown, tables)."""
+    from pathlib import Path
+    ext = Path(filename).suffix.lower()
+    if ext not in _PREVIEWABLE:
+        return "", []
+
+    try:
+        import pandas as pd
+
+        if ext == ".parquet":
+            df = pd.read_parquet(path)
+        elif ext == ".dta":
+            df = pd.read_stata(path)
+        elif ext in (".feather", ".arrow"):
+            df = pd.read_feather(path)
+        elif ext == ".orc":
+            df = pd.read_orc(path)
+        else:
+            return "", []
+
+        rows, cols = df.shape
+        size_mb = path.stat().st_size / 1e6
+
+        # Schema table
+        schema_rows = []
+        for col in df.columns:
+            non_null_pct = f"{df[col].notna().mean() * 100:.0f}%"
+            first_valid = df[col].dropna().iloc[0] if df[col].notna().any() else ""
+            example = str(first_valid)[:40]
+            schema_rows.append(f"| {col} | {df[col].dtype} | {non_null_pct} | {example} |")
+
+        schema_md = "| Column | Type | Non-null | Example |\n|--------|------|----------|---------|\n" + "\n".join(schema_rows)
+
+        head_df = df.head(20)
+        head_md = head_df.to_markdown(index=False) or ""
+
+        preview = f"## Dataset: {filename}\n\n- **Rows:** {rows:,}\n- **Columns:** {cols}\n- **Size:** {size_mb:.1f} MB\n\n### Schema\n\n{schema_md}\n\n### Head (first {len(head_df)} rows)\n\n{head_md}"
+        return preview, [df]
+
+    except Exception:
+        return "", []
+
+
 class BinaryAdapter(BaseAdapter):
     """Streams binary/archive/data files to disk with cache detection."""
 
@@ -108,11 +155,13 @@ class BinaryAdapter(BaseAdapter):
         if cached_size > 0 and (remote_size is None or cached_size == remote_size):
             size_str = _format_size(cached_size)
             print(f"[cache hit] {filename} ({size_str})", file=sys.stderr)
+            preview, tables = _generate_preview(raw_path, filename)
+            content = preview if preview else f"[cached] {filename}  {size_str}"
             return FetchResult(
                 url=url,
                 source_type="binary",
-                content=f"[cached] {filename}  {size_str}",
-                tables=[],
+                content=content,
+                tables=tables,
                 metadata={"filename": filename, "size_bytes": cached_size, "cached": True},
                 raw_path=raw_path,
             )
@@ -203,11 +252,13 @@ class BinaryAdapter(BaseAdapter):
         final_size = raw_path.stat().st_size
         print(f"[done] {raw_path}  ({_format_size(final_size)})", file=sys.stderr)
 
+        preview, tables = _generate_preview(raw_path, filename)
+        content = preview if preview else f"{filename}  {_format_size(final_size)}\nSaved to: {raw_path}"
         return FetchResult(
             url=url,
             source_type="binary",
-            content=f"{filename}  {_format_size(final_size)}\nSaved to: {raw_path}",
-            tables=[],
+            content=content,
+            tables=tables,
             metadata={"filename": filename, "size_bytes": final_size, "cached": False},
             raw_path=raw_path,
         )

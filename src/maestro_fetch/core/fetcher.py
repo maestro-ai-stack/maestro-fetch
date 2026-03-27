@@ -17,6 +17,7 @@ from maestro_fetch.adapters.baidu_pan import BaiduPanAdapter
 from maestro_fetch.adapters.binary import BinaryAdapter
 from maestro_fetch.adapters.cloud import CloudAdapter
 from maestro_fetch.adapters.doc import DocAdapter
+from maestro_fetch.adapters.email import EmailAdapter
 from maestro_fetch.adapters.media import MediaAdapter
 from maestro_fetch.adapters.web import WebAdapter
 from maestro_fetch.core.config import FetchConfig
@@ -28,7 +29,7 @@ from maestro_fetch.core.errors import UnsupportedURLError
 #   Media before Web (YouTube/Vimeo need yt-dlp, not browser fetch)
 #   Binary > Doc (binary handles archives; Doc handles parseable docs)
 #   Web is final fallback
-_DEFAULT_ADAPTERS = [BaiduPanAdapter, CloudAdapter, MediaAdapter, BinaryAdapter, DocAdapter, WebAdapter]
+_DEFAULT_ADAPTERS = [BaiduPanAdapter, CloudAdapter, EmailAdapter, MediaAdapter, BinaryAdapter, DocAdapter, WebAdapter]
 
 
 class Fetcher:

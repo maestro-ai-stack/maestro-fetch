@@ -27,19 +27,72 @@ _DOC_PATTERNS = [
     r"\.pdf(\?|$)",
     r"\.(xlsx|xls|ods)(\?|$)",
     r"\.csv(\?|$)",
+    r"\.tsv(\?|$)",
+    r"\.jsonl?(\?|$)",
 ]
 
 
 def _parse_excel(content: bytes) -> tuple[str, list[pd.DataFrame]]:
-    """Parse Excel bytes into markdown text and a list of DataFrames."""
-    df = pd.read_excel(io.BytesIO(content))
-    return df.to_markdown(index=False) or "", [df]
+    """Parse all sheets from Excel bytes into markdown text and DataFrames."""
+    sheets = pd.read_excel(io.BytesIO(content), sheet_name=None)
+    parts: list[str] = []
+    tables: list[pd.DataFrame] = []
+    for name, df in sheets.items():
+        if len(sheets) > 1:
+            parts.append(f"## Sheet: {name}\n")
+        parts.append(df.to_markdown(index=False) or "(empty)")
+        parts.append("")
+        tables.append(df)
+    return "\n".join(parts), tables
+
+
+def _detect_encoding(content: bytes) -> str:
+    """Detect encoding of raw bytes. Falls back to utf-8."""
+    try:
+        import chardet
+        result = chardet.detect(content[:10000])
+        if result and result.get("encoding") and result.get("confidence", 0) > 0.5:
+            return result["encoding"]
+    except ImportError:
+        pass
+    return "utf-8"
 
 
 def _parse_csv(content: bytes) -> tuple[str, list[pd.DataFrame]]:
-    """Parse CSV bytes into markdown text and a list of DataFrames."""
-    df = pd.read_csv(io.BytesIO(content))
+    """Parse CSV bytes with encoding detection."""
+    encoding = _detect_encoding(content)
+    try:
+        df = pd.read_csv(io.BytesIO(content), encoding=encoding)
+    except (UnicodeDecodeError, pd.errors.ParserError):
+        df = pd.read_csv(io.BytesIO(content), encoding="latin-1")
     return df.to_markdown(index=False) or "", [df]
+
+
+def _parse_tsv(content: bytes) -> tuple[str, list[pd.DataFrame]]:
+    """Parse TSV bytes with encoding detection."""
+    encoding = _detect_encoding(content)
+    try:
+        df = pd.read_csv(io.BytesIO(content), sep="\t", encoding=encoding)
+    except (UnicodeDecodeError, pd.errors.ParserError):
+        df = pd.read_csv(io.BytesIO(content), sep="\t", encoding="latin-1")
+    return df.to_markdown(index=False) or "", [df]
+
+
+def _parse_json(content: bytes) -> tuple[str, list[pd.DataFrame]]:
+    """Parse JSON or JSONL bytes into markdown table."""
+    text = content.decode(_detect_encoding(content), errors="replace")
+    if text.strip().startswith("[") or text.strip().startswith("{"):
+        try:
+            df = pd.read_json(io.BytesIO(content))
+            return df.to_markdown(index=False) or "", [df]
+        except ValueError:
+            pass
+    # Try JSONL
+    try:
+        df = pd.read_json(io.BytesIO(content), lines=True)
+        return df.to_markdown(index=False) or "", [df]
+    except ValueError:
+        return text, []
 
 
 def _parse_pdf(content: bytes) -> tuple[str, list[pd.DataFrame]]:
@@ -136,6 +189,10 @@ class DocAdapter(BaseAdapter):
                 return _parse_excel(content)
             if ext == ".csv":
                 return _parse_csv(content)
+            if ext == ".tsv":
+                return _parse_tsv(content)
+            if ext in (".json", ".jsonl"):
+                return _parse_json(content)
             # Unknown doc type: treat as raw text
             return content.decode("utf-8", errors="replace"), []
         except Exception as e:

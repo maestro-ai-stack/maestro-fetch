@@ -20,10 +20,13 @@ _RULES: list[tuple[str, str]] = [
     (r"youtube\.com/watch", "media"),
     (r"youtu\.be/", "media"),
     (r"vimeo\.com/", "media"),
+    # Email (before generic documents)
+    (r"\.(eml|msg)(\?|$)", "email"),
     # Parseable documents (extension-based)
     (r"\.pdf(\?|$)", "doc"),
     (r"\.(xlsx|xls|ods)(\?|$)", "doc"),
-    (r"\.csv(\?|$)", "doc"),
+    (r"\.(csv|tsv)(\?|$)", "doc"),
+    (r"\.jsonl?(\?|$)", "doc"),
     # Binary / archive / geospatial / data science (stream to disk)
     (r"\.(zip|gz|bz2|7z|rar|xz|lz4|zst)(\?|$)", "binary"),
     (r"\.tar(\.(gz|bz2|xz|lz4|zst))?(\?|$)", "binary"),
