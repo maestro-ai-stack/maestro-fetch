@@ -49,13 +49,37 @@ class BrowserUseBackend:
         """
         try:
             from browser_use import Agent
-            from langchain_anthropic import ChatAnthropic
         except ImportError as exc:
             raise FetchError(
-                "browser-use requires: pip install 'browser-use>=0.2' 'langchain-anthropic'"
+                "browser-use requires: pip install 'browser-use>=0.2'"
             ) from exc
 
-        llm = ChatAnthropic(model_name=self._model)
+        import os
+
+        anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
+        openrouter_key = os.environ.get("OPENROUTER_API_KEY")
+
+        if anthropic_key:
+            from browser_use.llm.anthropic.chat import ChatAnthropic
+
+            llm = ChatAnthropic(model=self._model, api_key=anthropic_key)
+        elif openrouter_key:
+            from browser_use.llm.openrouter.chat import ChatOpenRouter
+
+            # Map exact model IDs to OpenRouter format
+            or_model = self._model
+            if not or_model.startswith("anthropic/"):
+                or_model = f"anthropic/{or_model}"
+            # OpenRouter uses simplified names (e.g. claude-sonnet-4 not claude-sonnet-4-20250514)
+            or_model = or_model.split("-2025")[0].split("-2024")[0].split("-2026")[0]
+            llm = ChatOpenRouter(
+                model=or_model,
+                api_key=openrouter_key,
+            )
+        else:
+            raise FetchError(
+                "browser-use needs ANTHROPIC_API_KEY or OPENROUTER_API_KEY in env"
+            )
 
         full_task = task
         if url:
