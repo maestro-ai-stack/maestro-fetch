@@ -48,14 +48,21 @@ def _parse_excel(content: bytes) -> tuple[str, list[pd.DataFrame]]:
 
 def _detect_encoding(content: bytes) -> str:
     """Detect encoding of raw bytes. Falls back to utf-8."""
+    # Try UTF-8 first
+    try:
+        content[:10000].decode("utf-8")
+        return "utf-8"
+    except UnicodeDecodeError:
+        pass
+    # Fall back to chardet
     try:
         import chardet
         result = chardet.detect(content[:10000])
-        if result and result.get("encoding") and result.get("confidence", 0) > 0.5:
+        if result and result.get("encoding"):
             return result["encoding"]
     except ImportError:
         pass
-    return "utf-8"
+    return "latin-1"
 
 
 def _parse_csv(content: bytes) -> tuple[str, list[pd.DataFrame]]:
@@ -160,7 +167,16 @@ class DocAdapter(BaseAdapter):
 
     @staticmethod
     async def _download(url: str, config: FetchConfig) -> bytes:
-        """Download file content from URL. Raises DownloadError on failure."""
+        """Download file content from URL or local path. Raises DownloadError on failure."""
+        # Handle local files
+        if url.startswith("file://"):
+            local_path = Path(url.removeprefix("file://"))
+            if local_path.is_file():
+                return local_path.read_bytes()
+            raise DownloadError(f"Local file not found: {local_path}")
+        if not url.startswith(("http://", "https://")) and Path(url).is_file():
+            return Path(url).read_bytes()
+
         try:
             client_kwargs: dict = dict(
                 follow_redirects=True, timeout=config.timeout

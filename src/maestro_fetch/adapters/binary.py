@@ -129,7 +129,8 @@ def _generate_preview(path, filename: str) -> tuple[str, list]:
         preview = f"## Dataset: {filename}\n\n- **Rows:** {rows:,}\n- **Columns:** {cols}\n- **Size:** {size_mb:.1f} MB\n\n### Schema\n\n{schema_md}\n\n### Head (first {len(head_df)} rows)\n\n{head_md}"
         return preview, [df]
 
-    except Exception:
+    except Exception as exc:
+        print(f"[preview] skipped for {filename}: {exc}", file=sys.stderr)
         return "", []
 
 
@@ -144,6 +145,29 @@ class BinaryAdapter(BaseAdapter):
         return bool(embedded and any(re.search(p, embedded, re.IGNORECASE) for p in _BINARY_PATTERNS))
 
     async def fetch(self, url: str, config: FetchConfig) -> FetchResult:
+        from pathlib import Path as _Path
+
+        # --- Handle local files ---
+        local_path = None
+        if url.startswith("file://"):
+            local_path = _Path(url.removeprefix("file://"))
+        elif not url.startswith(("http://", "https://")) and _Path(url).is_file():
+            local_path = _Path(url)
+
+        if local_path and local_path.is_file():
+            filename = local_path.name
+            size = local_path.stat().st_size
+            preview, tables = _generate_preview(local_path, filename)
+            content = preview if preview else f"{filename}  {_format_size(size)}\nPath: {local_path}"
+            return FetchResult(
+                url=url,
+                source_type="binary",
+                content=content,
+                tables=tables,
+                metadata={"filename": filename, "size_bytes": size, "cached": False},
+                raw_path=local_path,
+            )
+
         filename = self._filename_from_url(url)
         config.cache_dir.mkdir(parents=True, exist_ok=True)
         raw_path = config.cache_dir / filename
