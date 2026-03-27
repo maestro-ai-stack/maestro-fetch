@@ -152,10 +152,10 @@ def ensure_authorized() -> str:
                 return token["access_token"]
 
     # Interactive one-time setup
-    print(f"\n[BaiduPan] First-time setup required.")
-    print(f"  1. Open this URL in your browser (log in to Baidu first):")
+    print("\n[BaiduPan] First-time setup required.")
+    print("  1. Open this URL in your browser (log in to Baidu first):")
     print(f"     {_AUTH_URL}")
-    print(f"  2. Copy the authorization code shown on the page.")
+    print("  2. Copy the authorization code shown on the page.")
     code = input("  3. Paste authorization code here: ").strip()
     token = _exchange_code(code)
     print(f"[BaiduPan] Authorized. Token saved to {_TOKEN_PATH}")

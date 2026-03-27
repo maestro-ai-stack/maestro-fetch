@@ -27,10 +27,10 @@ async def run(ctx, query, max_results=10):
 
         t = title.group(1).strip().replace("\n", " ") if title else "Unknown"
         s = summary.group(1).strip().replace("\n", " ")[:200] if summary else ""
-        l = link.group(1).strip() if link else ""
+        url = link.group(1).strip() if link else ""
         p = published.group(1)[:10] if published else ""
 
-        lines.append(f"### {t}\n\n{p} | [{l}]({l})\n\n{s}...\n")
+        lines.append(f"### {t}\n\n{p} | [{url}]({url})\n\n{s}...\n")
 
     return {
         "content": f"## arXiv: {query}\n\n" + "\n---\n".join(lines),

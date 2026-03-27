@@ -436,7 +436,7 @@ class ExtensionBackend:
         # Execute site-specific JS
         exec_cmd = self._make_command(
             "exec",
-            code=f"document.title + '\\n' + document.body.innerText",
+            code="document.title + '\\n' + document.body.innerText",
         )
         result = await self._send_command(exec_cmd)
         return {"site": site, "action": action, "output": result}

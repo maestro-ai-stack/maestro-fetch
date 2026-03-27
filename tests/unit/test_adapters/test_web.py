@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, patch
 from maestro_fetch.adapters.web import WebAdapter
 from maestro_fetch.core.config import FetchConfig
 
@@ -22,19 +22,12 @@ async def test_fetch_returns_markdown():
     a = WebAdapter()
     config = FetchConfig()
 
-    mock_result = MagicMock()
-    mock_result.markdown = "# Hello\n\nWorld"
-    mock_result.success = True
-
-    with patch("crawl4ai.AsyncWebCrawler") as mock_crawler_class:
-        mock_crawler = AsyncMock()
-        mock_crawler.__aenter__ = AsyncMock(return_value=mock_crawler)
-        mock_crawler.__aexit__ = AsyncMock(return_value=False)
-        mock_crawler.arun = AsyncMock(return_value=mock_result)
-        mock_crawler_class.return_value = mock_crawler
-
+    with patch("maestro_fetch.adapters.web._extension_fetch", new_callable=AsyncMock, return_value=None), \
+         patch("maestro_fetch.adapters.web._cdp_fetch", new_callable=AsyncMock, return_value=None), \
+         patch("maestro_fetch.adapters.web._httpx_fetch", new_callable=AsyncMock, return_value="# Hello\n\nWorld"):
         result = await a.fetch("https://example.com", config)
 
     assert result.source_type == "web"
     assert result.content == "# Hello\n\nWorld"
+    assert result.metadata["adapter"] == "httpx"
     assert result.tables == []
