@@ -3,10 +3,10 @@
 Responsibility: handle generic web URLs (HTML pages, JS-rendered SPAs).
 Non-goals: PDF, spreadsheets, cloud storage, media -- handled by dedicated adapters.
 
-Strategy (4-tier fallback):
-    1. Extension backend (real Chrome via daemon + extension) -- auth, JS, cookies
-    2. CDP backend (Chrome with --remote-debugging-port) -- auth, no extension
-    3. httpx plain GET -- fastest, static pages
+Strategy (4-tier fallback, fast-first):
+    1. httpx plain GET -- fastest, try first for static pages
+    2. Extension backend (real Chrome via daemon + extension) -- auth, JS, cookies
+    3. CDP backend (Chrome with --remote-debugging-port) -- auth, no extension
     4. playwright-stealth -- WAF/anti-bot bypass, headless fallback
 """
 from __future__ import annotations
@@ -51,6 +51,22 @@ _LOGIN_WALL_MARKERS = (
     "suite/passport/static/login",
     "accounts.google.com/signin",
     "login.microsoftonline.com",
+)
+
+# Sites that require JS rendering -- skip httpx, go straight to browser backends.
+_BROWSER_REQUIRED_PATTERNS = (
+    r"x\.com/",
+    r"twitter\.com/",
+    r"reddit\.com/",
+    r"producthunt\.com/",
+    r"feishu\.cn/",
+    r"larksuite\.com/",
+    r"notion\.so/",
+    r"figma\.com/",
+    r"linkedin\.com/",
+    r"instagram\.com/",
+    r"facebook\.com/",
+    r"threads\.net/",
 )
 
 
@@ -178,12 +194,12 @@ async def _playwright_stealth_fetch(url: str, config: FetchConfig) -> str:
 
 
 class WebAdapter(BaseAdapter):
-    """Fetches web pages with 4-tier fallback.
+    """Fetches web pages with 4-tier fallback (fast-first).
 
     Strategy:
-        1. Extension (real Chrome via daemon) -- auth, JS, cookies
-        2. CDP (Chrome with debug port) -- auth, no extension needed
-        3. httpx plain GET -- fastest, works everywhere
+        1. httpx plain GET -- fastest, try first
+        2. Extension (real Chrome via daemon) -- auth, JS, cookies
+        3. CDP (Chrome with debug port) -- auth, no extension needed
         4. playwright-stealth -- WAF/anti-bot bypass
     """
 
@@ -192,8 +208,25 @@ class WebAdapter(BaseAdapter):
 
     async def fetch(self, url: str, config: FetchConfig) -> FetchResult:
         errors: dict[str, str] = {}
+        needs_browser = any(re.search(p, url, re.IGNORECASE) for p in _BROWSER_REQUIRED_PATTERNS)
 
-        # --- Tier 1: Extension (real Chrome) ---
+        # --- Tier 1: httpx plain GET (fastest, skip for JS-heavy sites) ---
+        if not needs_browser:
+            try:
+                content = await _httpx_fetch(url, config)
+                if not _is_waf_blocked(content) and not _is_login_wall(content):
+                    return FetchResult(
+                        url=url,
+                        source_type="web",
+                        content=content,
+                        tables=[],
+                        metadata={"adapter": "httpx"},
+                    )
+                errors["httpx"] = "WAF block or login wall detected"
+            except (DownloadError, ImportError) as exc:
+                errors["httpx"] = str(exc)
+
+        # --- Tier 2: Extension (real Chrome, auth + JS) ---
         ext_content = await _extension_fetch(url, config)
         if ext_content:
             return FetchResult(
@@ -201,10 +234,10 @@ class WebAdapter(BaseAdapter):
                 source_type="web",
                 content=ext_content,
                 tables=[],
-                metadata={"adapter": "extension"},
+                metadata={"adapter": "extension", "errors": errors},
             )
 
-        # --- Tier 2: CDP (Chrome with debug port) ---
+        # --- Tier 3: CDP (Chrome with debug port) ---
         cdp_content = await _cdp_fetch(url, config)
         if cdp_content:
             return FetchResult(
@@ -212,23 +245,8 @@ class WebAdapter(BaseAdapter):
                 source_type="web",
                 content=cdp_content,
                 tables=[],
-                metadata={"adapter": "cdp"},
+                metadata={"adapter": "cdp", "errors": errors},
             )
-
-        # --- Tier 3: httpx plain GET ---
-        try:
-            content = await _httpx_fetch(url, config)
-            if not _is_waf_blocked(content):
-                return FetchResult(
-                    url=url,
-                    source_type="web",
-                    content=content,
-                    tables=[],
-                    metadata={"adapter": "httpx"},
-                )
-            errors["httpx"] = "WAF block detected"
-        except (DownloadError, ImportError) as exc:
-            errors["httpx"] = str(exc)
 
         # --- Tier 4: playwright-stealth (WAF bypass) ---
         try:
