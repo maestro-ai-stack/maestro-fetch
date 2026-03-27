@@ -1,10 +1,8 @@
-"""MediaAdapter -- downloads video/audio and transcribes to text.
+"""MediaAdapter -- extracts subtitles or transcribes video/audio to text.
 
-Responsibilities:
-- Detect media URLs (YouTube, Vimeo, etc.) via regex
-- Download audio track using yt-dlp (optional dependency)
-- Transcribe audio using OpenAI Whisper local model (optional dependency)
-- Return transcript as FetchResult with source_type="media"
+Strategy (fast-first, like WebAdapter):
+    1. Try extracting existing subtitles via yt-dlp (no download, ~1-2s)
+    2. Fall back to downloading audio + Whisper transcription (~minutes)
 
 Invariants:
 - supports() is pure regex, no network calls
@@ -30,6 +28,49 @@ _MEDIA_PATTERNS = [
     r"bilibili\.com/video/",
     r"tiktok\.com/.+/video/",
 ]
+
+
+def _extract_subtitles(url: str, out_dir: Path, langs: list[str] | None = None) -> str | None:
+    """Try extracting existing subtitles via yt-dlp (no video download). Returns text or None."""
+    try:
+        import yt_dlp
+    except ImportError:
+        return None
+
+    if langs is None:
+        langs = ["en", "zh-Hans", "zh", "ja", "ko"]
+
+    opts = {
+        "skip_download": True,
+        "writesubtitles": True,
+        "writeautomaticsub": True,
+        "subtitleslangs": langs,
+        "subtitlesformat": "vtt",
+        "outtmpl": str(out_dir / "%(id)s.%(ext)s"),
+        "quiet": True,
+    }
+
+    with yt_dlp.YoutubeDL(opts) as ydl:
+        ydl.extract_info(url, download=True)
+
+    # Find the downloaded .vtt file
+    vtt_files = sorted(out_dir.glob("*.vtt"))
+    if not vtt_files:
+        return None
+
+    # Parse VTT: strip headers, timestamps, and deduplicate repeated lines
+    text = vtt_files[0].read_text(encoding="utf-8")
+    lines = []
+    for line in text.split("\n"):
+        line = line.strip()
+        if not line or line.startswith("WEBVTT") or "-->" in line:
+            continue
+        if line.isdigit() or line.startswith("Kind:") or line.startswith("Language:"):
+            continue
+        if not lines or line != lines[-1]:
+            lines.append(line)
+
+    return " ".join(lines) if lines else None
 
 
 def _download_audio(url: str, out_dir: Path) -> Path:
@@ -70,7 +111,12 @@ def _transcribe(audio_path: Path) -> str:
 
 
 class MediaAdapter(BaseAdapter):
-    """Downloads video/audio and transcribes to text via yt-dlp + Whisper."""
+    """Extracts subtitles or transcribes video/audio.
+
+    Strategy (fast-first):
+        1. Extract existing subtitles via yt-dlp (~1-2s, no download)
+        2. Download audio + Whisper transcription (fallback, ~minutes)
+    """
 
     def supports(self, url: str) -> bool:
         return any(re.search(p, url, re.IGNORECASE) for p in _MEDIA_PATTERNS)
@@ -80,8 +126,26 @@ class MediaAdapter(BaseAdapter):
         media_dir = config.cache_dir / "media"
         media_dir.mkdir(exist_ok=True)
 
+        loop = asyncio.get_event_loop()
+
+        # --- Tier 1: Extract existing subtitles (fast, no download) ---
         try:
-            loop = asyncio.get_event_loop()
+            subtitle_text = await loop.run_in_executor(
+                None, _extract_subtitles, url, media_dir, None
+            )
+            if subtitle_text and len(subtitle_text) > 50:
+                return FetchResult(
+                    url=url,
+                    source_type="media",
+                    content=f"## Subtitles\n\n{subtitle_text}",
+                    tables=[],
+                    metadata={"method": "subtitles"},
+                )
+        except Exception:
+            pass  # Fall through to audio transcription
+
+        # --- Tier 2: Download audio + Whisper transcription (slow) ---
+        try:
             audio_path = await loop.run_in_executor(
                 None, _download_audio, url, media_dir
             )
@@ -93,12 +157,11 @@ class MediaAdapter(BaseAdapter):
         except Exception as e:
             raise DownloadError(f"Media fetch failed for {url}: {e}") from e
 
-        content = f"## Transcript\n\n{transcript}"
         return FetchResult(
             url=url,
             source_type="media",
-            content=content,
+            content=f"## Transcript\n\n{transcript}",
             tables=[],
-            metadata={"audio_path": str(audio_path)},
+            metadata={"method": "whisper", "audio_path": str(audio_path)},
             raw_path=audio_path,
         )
