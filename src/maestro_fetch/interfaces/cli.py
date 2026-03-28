@@ -108,15 +108,30 @@ def _print_result(
             typer.echo(f"Saved to {dest}")
             return
     if output_format == "markdown":
-        typer.echo(result.content)
+        if output_dir:
+            output_dir.mkdir(parents=True, exist_ok=True)
+            name = getattr(result, "url", "output").split("/")[-1].split("?")[0] or "output"
+            path = output_dir / f"{name}.md"
+            path.write_text(result.content, encoding="utf-8")
+            typer.echo(f"Saved to {path}")
+        else:
+            typer.echo(result.content)
     elif output_format == "json":
         if result.tables:
-            typer.echo(result.tables[0].to_json(orient="records", indent=2))
+            payload = result.tables[0].to_json(orient="records", indent=2)
         else:
-            typer.echo(json.dumps({
+            payload = json.dumps({
                 "content": result.content,
                 "metadata": result.metadata,
-            }))
+            })
+        if output_dir:
+            output_dir.mkdir(parents=True, exist_ok=True)
+            name = getattr(result, "url", "output").split("/")[-1].split("?")[0] or "output"
+            path = output_dir / f"{name}.json"
+            path.write_text(payload, encoding="utf-8")
+            typer.echo(f"Saved to {path}")
+        else:
+            typer.echo(payload)
     elif output_format in ("csv", "parquet"):
         if not result.tables:
             typer.echo("No tables found in result.", err=True)
