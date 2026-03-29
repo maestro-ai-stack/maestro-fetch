@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "OpenCLI",
-  "version": "1.2.6",
-  "description": "Bridge between opencli CLI and your browser — execute commands, read cookies, manage tabs.",
+  "name": "Maestro Fetch",
+  "version": "2.0.0",
+  "description": "Bridge between maestro-fetch CLI and your browser — execute commands, read cookies, manage tabs.",
   "permissions": [
     "debugger",
     "tabs",
@@ -21,11 +21,11 @@
     "128": "icons/icon-128.png"
   },
   "action": {
-    "default_title": "OpenCLI",
+    "default_title": "Maestro Fetch",
     "default_icon": {
       "16": "icons/icon-16.png",
       "32": "icons/icon-32.png"
     }
   },
-  "homepage_url": "https://github.com/jackwener/opencli"
+  "homepage_url": "https://github.com/maestro-ai-stack/maestro-fetch"
 }

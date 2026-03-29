@@ -21,7 +21,7 @@ export interface Command {
   /** URL to navigate to (navigate action) */
   url?: string;
   /** Sub-operation for tabs: list, new, close, select */
-  op?: 'list' | 'new' | 'close' | 'select';
+  op?: 'list' | 'list-all' | 'new' | 'close' | 'select';
   /** Tab index for tabs select/close */
   index?: number;
   /** Cookie domain filter */

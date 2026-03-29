@@ -16,6 +16,7 @@ from maestro_fetch.cli.cache_cmd import app as cache_app
 from maestro_fetch.cli.config_cmd import app as config_app
 from maestro_fetch.cli.discover_cmd import app as discover_app
 from maestro_fetch.cli.do_cmd import app as do_app
+from maestro_fetch.cli.tab_cmd import app as tab_app
 
 app = typer.Typer(
     name="maestro-fetch",
@@ -31,12 +32,13 @@ app.add_typer(cache_app, name="cache", help="Cache management.")
 app.add_typer(config_app, name="config", help="Configuration management.")
 app.add_typer(discover_app, name="discover", help="Discover site content via extension.")
 app.add_typer(do_app, name="do", help="Natural language browser tasks.")
+app.add_typer(tab_app, name="tab", help="Interact with existing Chrome tabs.")
 
 # Register the default fetch command as "main" subcommand
 app.registered_commands += fetch_app.registered_commands
 
 # Known subcommand names
-_SUBCOMMANDS = {"source", "session", "cache", "config", "discover", "do", "main"}
+_SUBCOMMANDS = {"source", "session", "cache", "config", "discover", "do", "tab", "main"}
 
 
 def run() -> None:

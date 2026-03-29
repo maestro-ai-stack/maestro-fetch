@@ -441,6 +441,95 @@ class ExtensionBackend:
         result = await self._send_command(exec_cmd)
         return {"site": site, "action": action, "output": result}
 
+    # -- Tab targeting (attach to existing user tabs) -----------------------
+
+    async def list_all_tabs(self) -> list[dict]:
+        """List ALL Chrome tabs across all windows."""
+        await self._ensure_connected()
+        cmd = self._make_command("tabs", op="list-all")
+        result = await self._send_command(cmd)
+        return result if isinstance(result, list) else []
+
+    async def find_tab(self, url_pattern: str) -> dict | None:
+        """Find first tab whose URL contains the pattern (case-insensitive)."""
+        tabs = await self.list_all_tabs()
+        pattern = url_pattern.lower()
+        for tab in tabs:
+            url = (tab.get("url") or "").lower()
+            title = (tab.get("title") or "").lower()
+            if pattern in url or pattern in title:
+                return tab
+        return None
+
+    async def snapshot_tab(self, tab_id: int) -> str:
+        """Get page content as markdown from an existing tab (no navigate)."""
+        await self._ensure_connected()
+        cmd = self._make_command("exec", code="document.documentElement.outerHTML")
+        cmd["tabId"] = tab_id
+        html = await self._send_command(cmd)
+        if not html or not isinstance(html, str):
+            cmd2 = self._make_command("exec", code="document.body.innerText")
+            cmd2["tabId"] = tab_id
+            text = await self._send_command(cmd2)
+            return str(text) if text else ""
+        try:
+            import html2text
+            converter = html2text.HTML2Text()
+            converter.ignore_links = False
+            converter.ignore_images = True
+            converter.body_width = 0
+            converter.skip_internal_links = True
+            return converter.handle(html)
+        except ImportError:
+            text = re.sub(r"<[^>]+>", " ", html)
+            return re.sub(r"\s+", " ", text).strip()
+
+    async def screenshot_tab(self, tab_id: int) -> bytes:
+        """Screenshot an existing tab as PNG bytes."""
+        await self._ensure_connected()
+        cmd = self._make_command("screenshot", format="png", full_page=True)
+        cmd["tabId"] = tab_id
+        result = await self._send_command(cmd)
+        if isinstance(result, str):
+            return base64.b64decode(result)
+        elif isinstance(result, dict) and "data" in result:
+            return base64.b64decode(result["data"])
+        raise FetchError("Unexpected screenshot result format")
+
+    async def exec_tab(self, tab_id: int, js: str) -> Any:
+        """Execute JavaScript in an existing tab."""
+        await self._ensure_connected()
+        cmd = self._make_command("exec", code=js)
+        cmd["tabId"] = tab_id
+        return await self._send_command(cmd)
+
+    async def fill_tab(self, tab_id: int, selector: str, value: str) -> Any:
+        """Fill a form field in an existing tab."""
+        js = (
+            f"(() => {{"
+            f"  const el = document.querySelector({selector!r});"
+            f"  if (!el) return 'selector not found: ' + {selector!r};"
+            f"  el.focus();"
+            f"  el.value = {value!r};"
+            f"  el.dispatchEvent(new Event('input', {{bubbles: true}}));"
+            f"  el.dispatchEvent(new Event('change', {{bubbles: true}}));"
+            f"  return 'filled';"
+            f"}})()"
+        )
+        return await self.exec_tab(tab_id, js)
+
+    async def click_tab(self, tab_id: int, selector: str) -> Any:
+        """Click an element in an existing tab."""
+        js = (
+            f"(() => {{"
+            f"  const el = document.querySelector({selector!r});"
+            f"  if (!el) return 'selector not found: ' + {selector!r};"
+            f"  el.click();"
+            f"  return 'clicked';"
+            f"}})()"
+        )
+        return await self.exec_tab(tab_id, js)
+
     # -- Extra methods (beyond BrowserBackend protocol) ---------------------
 
     async def navigate(self, url: str) -> None:

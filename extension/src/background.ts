@@ -395,6 +395,20 @@ async function handleTabs(cmd: Command, workspace: string): Promise<Result> {
         }));
       return { id: cmd.id, ok: true, data };
     }
+    case 'list-all': {
+      const allTabs = await chrome.tabs.query({});
+      const data = allTabs
+        .filter(t => isDebuggableUrl(t.url))
+        .map((t, i) => ({
+          index: i,
+          tabId: t.id,
+          windowId: t.windowId,
+          url: t.url,
+          title: t.title,
+          active: t.active,
+        }));
+      return { id: cmd.id, ok: true, data };
+    }
     case 'new': {
       const windowId = await getAutomationWindow(workspace);
       const tab = await chrome.tabs.create({ windowId, url: cmd.url ?? 'data:text/html,<html></html>', active: true });
