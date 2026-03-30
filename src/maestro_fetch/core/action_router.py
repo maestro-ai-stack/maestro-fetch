@@ -1,11 +1,11 @@
-"""Three-layer action router for social platform operations.
+"""Action router for social platform operations.
 
 Routing strategy:
   Layer 1 (API)      — twikit/praw, READ only, fast, no browser
-  Layer 2 (Session)  — active CDP/extension session, WRITE first
+  Layer 2 (Pipeline) — extension backend, READ+WRITE
   Layer 3 (LLM)      — browser-use, universal fallback
 
-Write operations skip Layer 1, try Session first.
+Write operations skip Layer 1, try Pipeline first.
 Unregistered platform+action combos go directly to Layer 3.
 """
 from __future__ import annotations
@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 class ActionRouter:
-    """Routes platform actions through the four-layer fallback chain."""
+    """Routes platform actions through the layer fallback chain."""
 
     def __init__(self, config: dict | None = None) -> None:
         self._config = config or load_config()
@@ -40,7 +40,6 @@ class ActionRouter:
         pa = get_action(platform, action)
 
         if pa is None:
-            # Unregistered action → direct to Layer 3 (LLM)
             logger.info("Unregistered action %s/%s — routing to LLM layer", platform, action)
             return await self._execute_llm(platform, action, *args, **kwargs)
 
@@ -49,8 +48,6 @@ class ActionRouter:
             try:
                 if layer == Layer.API:
                     return await self._execute_api(pa, *args, **kwargs)
-                if layer == Layer.SESSION:
-                    return await self._execute_session(pa, *args, **kwargs)
                 if layer == Layer.PIPELINE:
                     return await self._execute_pipeline(pa, *args, **kwargs)
                 if layer == Layer.LLM:
@@ -67,23 +64,6 @@ class ActionRouter:
             f"All layers failed for {platform}/{action}: "
             + "; ".join(errors)
         )
-
-    # -- Session layer: CDP (active browser session) ---------------------
-
-    async def _execute_session(
-        self, pa: PlatformAction, *args: str, **kwargs: Any
-    ) -> dict:
-        """Execute via active CDP session using Playwright selectors."""
-        from maestro_fetch.core.session import get_active_session
-
-        state = get_active_session()
-        if state is None:
-            raise FetchError("No active CDP session")
-
-        from maestro_fetch.backends.cdp_actions import execute_cdp_action
-
-        result = await execute_cdp_action(state, pa.platform, pa.action, **kwargs)
-        return {"layer": "session", **result}
 
     # -- Layer 1: API (source adapters) ---------------------------------
 

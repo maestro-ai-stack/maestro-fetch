@@ -67,6 +67,7 @@ _BROWSER_REQUIRED_PATTERNS = (
     r"instagram\.com/",
     r"facebook\.com/",
     r"threads\.net/",
+    r"mail\.google\.com/",
 )
 
 
@@ -79,13 +80,26 @@ def _is_login_wall(content: str) -> bool:
 
 
 async def _extension_fetch(url: str, config: FetchConfig) -> str | None:  # noqa: ARG001
-    """Try fetching via the Chrome extension backend."""
+    """Try fetching via the Chrome extension backend.
+
+    Strategy: first try attaching to an existing tab matching the URL
+    (preserves auth/cookies). If no matching tab, navigate in automation window.
+    """
     try:
         from maestro_fetch.backends.extension import ExtensionBackend
 
         backend = ExtensionBackend()
         if not await backend.is_available():
             return None
+
+        # Try attaching to existing tab first (preserves login state)
+        tab = await backend.find_tab(url)
+        if tab:
+            content = await backend.snapshot_tab(tab["tabId"])
+            if content and len(content) > 200 and not _is_login_wall(content):
+                return content
+
+        # Fallback: navigate in automation window
         content = await backend.fetch_content(url)
         if content and len(content) > 200 and not _is_login_wall(content):
             return content
@@ -93,21 +107,6 @@ async def _extension_fetch(url: str, config: FetchConfig) -> str | None:  # noqa
     except Exception:
         return None
 
-
-async def _cdp_fetch(url: str, config: FetchConfig) -> str | None:  # noqa: ARG001
-    """Try fetching via CDP (Chrome with --remote-debugging-port)."""
-    try:
-        from maestro_fetch.backends.cdp import CDPBackend
-
-        backend = CDPBackend()
-        if not await backend.is_available():
-            return None
-        content = await backend.fetch_content(url)
-        if content and len(content) > 200 and not _is_login_wall(content):
-            return content
-        return None
-    except Exception:
-        return None
 
 
 async def _httpx_fetch(url: str, config: FetchConfig) -> str:
@@ -145,62 +144,12 @@ async def _httpx_fetch(url: str, config: FetchConfig) -> str:
         return re.sub(r"<[^>]+>", " ", html)
 
 
-async def _playwright_stealth_fetch(url: str, config: FetchConfig) -> str:
-    """Fetch with playwright-stealth to bypass WAF/anti-bot."""
-    try:
-        from playwright.async_api import async_playwright
-        from playwright_stealth import stealth_async
-    except ImportError as exc:
-        raise ImportError(
-            "playwright and playwright-stealth are required: "
-            "pip install playwright playwright-stealth && playwright install chromium"
-        ) from exc
-
-    timeout_ms = int((config.timeout or 60) * 1000)
-
-    async with async_playwright() as pw:
-        browser = await pw.chromium.launch(headless=True)
-        context = await browser.new_context(
-            user_agent=_FALLBACK_UA,
-            viewport={"width": 1280, "height": 800},
-        )
-        page = await context.new_page()
-        await stealth_async(page)
-
-        try:
-            await page.goto(url, timeout=timeout_ms, wait_until="domcontentloaded")
-            await page.wait_for_timeout(2000)
-            html = await page.content()
-        except Exception as exc:
-            await browser.close()
-            raise DownloadError(
-                f"playwright-stealth failed for {url}: {exc}"
-            ) from exc
-
-        await browser.close()
-
-    if not html or len(html) < 200:
-        raise DownloadError(f"playwright-stealth returned empty body for {url}")
-
-    try:
-        import html2text
-
-        h = html2text.HTML2Text()
-        h.ignore_links = False
-        h.ignore_images = True
-        return h.handle(html)
-    except ImportError:
-        return re.sub(r"<[^>]+>", " ", html)
-
-
 class WebAdapter(BaseAdapter):
-    """Fetches web pages with 4-tier fallback (fast-first).
+    """Fetches web pages with 2-tier fallback (fast-first).
 
     Strategy:
         1. httpx plain GET -- fastest, try first
         2. Extension (real Chrome via daemon) -- auth, JS, cookies
-        3. CDP (Chrome with debug port) -- auth, no extension needed
-        4. playwright-stealth -- WAF/anti-bot bypass
     """
 
     def supports(self, url: str) -> bool:

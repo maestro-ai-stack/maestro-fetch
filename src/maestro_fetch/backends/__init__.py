@@ -4,34 +4,24 @@ Instantiates browser backends from config and probes availability
 in the order specified by ``config["backends"]["priority"]``.
 
 Default priority:
-    1. extension  — real Chrome via daemon + Chrome extension (auth, JS, cookies)
-    2. cdp        — Chrome with --remote-debugging-port=9222 (no extension)
-    3. playwright — headless Chromium fallback (CI/servers)
+    1. extension   — real Chrome via daemon + Chrome extension (auth, JS, cookies)
+    2. browser-use — LLM-driven browser automation fallback
 """
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from maestro_fetch.backends.base import BrowserBackend
 from maestro_fetch.backends.browser_use import BrowserUseBackend
-from maestro_fetch.backends.cdp import CDPBackend
 from maestro_fetch.backends.extension import ExtensionBackend
-from maestro_fetch.backends.playwright import PlaywrightBackend
-
-if TYPE_CHECKING:
-    pass
 
 __all__ = [
     "BrowserBackend",
     "BrowserUseBackend",
-    "CDPBackend",
     "ExtensionBackend",
-    "PlaywrightBackend",
     "get_available_backends",
     "get_best_backend",
 ]
 
-_DEFAULT_PRIORITY = ["extension", "cdp", "playwright"]
+_DEFAULT_PRIORITY = ["extension", "browser-use"]
 
 
 def _make_backend(name: str, cfg: dict) -> BrowserBackend | None:
@@ -47,12 +37,6 @@ def _make_backend(name: str, cfg: dict) -> BrowserBackend | None:
         return ExtensionBackend(
             port=port, workspace=workspace, daemon_binary=daemon_binary
         )
-    if name == "cdp":
-        endpoint = backend_cfg.get("endpoint")
-        return CDPBackend(endpoint=endpoint)
-    if name == "playwright":
-        headless = backend_cfg.get("headless", True)
-        return PlaywrightBackend(headless=headless)
     if name == "browser-use":
         model = backend_cfg.get("model", "claude-sonnet-4-20250514")
         timeout = backend_cfg.get("timeout", 120)

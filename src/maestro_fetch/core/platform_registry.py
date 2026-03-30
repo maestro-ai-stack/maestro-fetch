@@ -13,8 +13,7 @@ class Layer(str, Enum):
     """Execution layers, ordered by preference."""
 
     API = "api"  # twikit, praw — READ only, fast, no browser
-    SESSION = "session"  # active CDP session — WRITE, uses Playwright selectors
-    PIPELINE = "pipeline"  # opencli YAML pipelines — READ+WRITE
+    PIPELINE = "pipeline"  # extension + opencli YAML pipelines — READ+WRITE
     LLM = "llm"  # browser-use — universal fallback
 
 
@@ -46,10 +45,10 @@ def _read(platform: str, action: str, *, source: str | None = None,
 
 def _write(platform: str, action: str, *, opencli_cmd: str | None = None,
            desc: str = "") -> PlatformAction:
-    """Helper to create a WRITE action (skips API layer, SESSION first)."""
+    """Helper to create a WRITE action (skips API layer)."""
     return PlatformAction(
         platform=platform, action=action, is_write=True,
-        layers=(Layer.SESSION, Layer.PIPELINE, Layer.LLM),
+        layers=(Layer.PIPELINE, Layer.LLM),
         opencli_command=opencli_cmd, description=desc,
     )
 

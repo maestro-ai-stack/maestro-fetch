@@ -36,7 +36,6 @@ DEFAULT_CONFIG: dict = {
     },
     "browser": {
         "extension": True,
-        "playwright": True,
     },
     "sources": {
         "repo": "maestro-ai-stack/maestro-fetch-sources",
@@ -47,7 +46,7 @@ DEFAULT_CONFIG: dict = {
         "format": "markdown",
     },
     "backends": {
-        "priority": ["extension", "cdp", "playwright"],
+        "priority": ["extension", "browser-use"],
         "extension": {
             "enabled": True,
             "port": 19825,
@@ -125,7 +124,6 @@ def write_default_config(path: Path | None = None) -> Path:
         "",
         "[browser]",
         "extension = true",
-        "playwright = true",
         "",
         "[sources]",
         'repo = "maestro-ai-stack/maestro-fetch-sources"',
@@ -136,7 +134,7 @@ def write_default_config(path: Path | None = None) -> Path:
         'format = "markdown"',
         "",
         "[backends]",
-        'priority = ["extension", "cdp", "playwright"]',
+        'priority = ["extension", "browser-use"]',
         "",
         "[backends.extension]",
         "enabled = true",
