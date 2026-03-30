@@ -107,6 +107,22 @@ def click(
     typer.echo(result)
 
 
+@app.command("type")
+def type_text(
+    tab_id: int = typer.Argument(..., help="Tab ID"),
+    text: str = typer.Argument(..., help="Text to type via CDP keyboard events"),
+) -> None:
+    """Type text into focused element via real keyboard events (CDP-level).
+
+    Unlike 'fill', this produces real Input.dispatchKeyEvent events that
+    JSF/Mojarra and other server-side frameworks recognize.
+    Focus the target element first with 'exec' or 'click'.
+    """
+    backend = _backend()
+    result = _run(backend.type_tab(tab_id, text))
+    typer.echo(result)
+
+
 @app.command("exec")
 def exec_js(
     tab_id: int = typer.Argument(..., help="Tab ID"),

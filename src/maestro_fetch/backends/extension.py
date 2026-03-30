@@ -530,6 +530,24 @@ class ExtensionBackend:
         )
         return await self.exec_tab(tab_id, js)
 
+    async def type_tab(self, tab_id: int, text: str) -> Any:
+        """Type text into focused element via CDP Input.dispatchKeyEvent.
+
+        Unlike fill_tab (DOM-level), this produces real keyboard events that
+        JSF/Mojarra and other server-side frameworks recognize.
+        """
+        await self._ensure_connected()
+        cmd = self._make_command("type", text=text)
+        cmd["tabId"] = tab_id
+        return await self._send_command(cmd)
+
+    async def click_at_tab(self, tab_id: int, x: int, y: int) -> Any:
+        """Click at coordinates via CDP Input.dispatchMouseEvent."""
+        await self._ensure_connected()
+        cmd = self._make_command("click-at", x=x, y=y)
+        cmd["tabId"] = tab_id
+        return await self._send_command(cmd)
+
     # -- Extra methods (beyond BrowserBackend protocol) ---------------------
 
     async def navigate(self, url: str) -> None:

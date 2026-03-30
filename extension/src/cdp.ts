@@ -144,6 +144,41 @@ export async function screenshot(
   }
 }
 
+/**
+ * Type text into the focused element using CDP Input.dispatchKeyEvent.
+ * This produces real keyboard events that JSF/Mojarra and other
+ * server-side frameworks recognize (unlike DOM-level value assignment).
+ */
+export async function typeText(tabId: number, text: string): Promise<void> {
+  await ensureAttached(tabId);
+
+  for (const char of text) {
+    // keyDown with text
+    await chrome.debugger.sendCommand({ tabId }, 'Input.dispatchKeyEvent', {
+      type: 'keyDown',
+      text: char,
+    });
+    // keyUp
+    await chrome.debugger.sendCommand({ tabId }, 'Input.dispatchKeyEvent', {
+      type: 'keyUp',
+    });
+  }
+}
+
+/**
+ * Click at a specific point using CDP Input.dispatchMouseEvent.
+ */
+export async function clickAt(tabId: number, x: number, y: number): Promise<void> {
+  await ensureAttached(tabId);
+
+  await chrome.debugger.sendCommand({ tabId }, 'Input.dispatchMouseEvent', {
+    type: 'mousePressed', x, y, button: 'left', clickCount: 1,
+  });
+  await chrome.debugger.sendCommand({ tabId }, 'Input.dispatchMouseEvent', {
+    type: 'mouseReleased', x, y, button: 'left', clickCount: 1,
+  });
+}
+
 export async function detach(tabId: number): Promise<void> {
   if (!attached.has(tabId)) return;
   attached.delete(tabId);

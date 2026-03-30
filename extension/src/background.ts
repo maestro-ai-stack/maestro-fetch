@@ -213,6 +213,10 @@ async function handleCommand(cmd: Command): Promise<Result> {
         return await handleScreenshot(cmd, workspace);
       case 'close-window':
         return await handleCloseWindow(cmd, workspace);
+      case 'type':
+        return await handleType(cmd, workspace);
+      case 'click-at':
+        return await handleClickAt(cmd, workspace);
       case 'sessions':
         return await handleSessions(cmd);
       default:
@@ -472,6 +476,30 @@ async function handleScreenshot(cmd: Command, workspace: string): Promise<Result
       fullPage: cmd.fullPage,
     });
     return { id: cmd.id, ok: true, data };
+  } catch (err) {
+    return { id: cmd.id, ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+async function handleType(cmd: Command, workspace: string): Promise<Result> {
+  const tabId = await resolveTabId(cmd.tabId, workspace);
+  const text = cmd.text ?? '';
+  if (!text) return { id: cmd.id, ok: false, error: 'No text to type' };
+  try {
+    await executor.typeText(tabId, text);
+    return { id: cmd.id, ok: true, data: `typed ${text.length} chars` };
+  } catch (err) {
+    return { id: cmd.id, ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+async function handleClickAt(cmd: Command, workspace: string): Promise<Result> {
+  const tabId = await resolveTabId(cmd.tabId, workspace);
+  const x = cmd.x ?? 0;
+  const y = cmd.y ?? 0;
+  try {
+    await executor.clickAt(tabId, x, y);
+    return { id: cmd.id, ok: true, data: `clicked at (${x}, ${y})` };
   } catch (err) {
     return { id: cmd.id, ok: false, error: err instanceof Error ? err.message : String(err) };
   }

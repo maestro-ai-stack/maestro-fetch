@@ -5,7 +5,7 @@
  * Everything else is just JS code sent via 'exec'.
  */
 
-export type Action = 'exec' | 'navigate' | 'tabs' | 'cookies' | 'screenshot' | 'close-window' | 'sessions';
+export type Action = 'exec' | 'navigate' | 'tabs' | 'cookies' | 'screenshot' | 'close-window' | 'sessions' | 'type' | 'click-at';
 
 export interface Command {
   /** Unique request ID */
@@ -32,6 +32,12 @@ export interface Command {
   quality?: number;
   /** Whether to capture full page (not just viewport) */
   fullPage?: boolean;
+  /** Text to type via CDP Input.dispatchKeyEvent (type action) */
+  text?: string;
+  /** X coordinate for click-at action */
+  x?: number;
+  /** Y coordinate for click-at action */
+  y?: number;
 }
 
 export interface Result {
