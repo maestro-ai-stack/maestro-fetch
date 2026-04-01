@@ -186,29 +186,6 @@ class WebAdapter(BaseAdapter):
                 metadata={"adapter": "extension", "errors": errors},
             )
 
-        # --- Tier 3: CDP (Chrome with debug port) ---
-        cdp_content = await _cdp_fetch(url, config)
-        if cdp_content:
-            return FetchResult(
-                url=url,
-                source_type="web",
-                content=cdp_content,
-                tables=[],
-                metadata={"adapter": "cdp", "errors": errors},
-            )
-
-        # --- Tier 4: playwright-stealth (WAF bypass) ---
-        try:
-            content = await _playwright_stealth_fetch(url, config)
-            return FetchResult(
-                url=url,
-                source_type="web",
-                content=content,
-                tables=[],
-                metadata={"adapter": "playwright-stealth", "errors": errors},
-            )
-        except (DownloadError, ImportError) as exc:
-            errors["playwright-stealth"] = str(exc)
-            raise DownloadError(
-                f"All fetch strategies failed for {url}: {errors}"
-            ) from exc
+        raise DownloadError(
+            f"All fetch strategies failed for {url}: {errors}"
+        )
