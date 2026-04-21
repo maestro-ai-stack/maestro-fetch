@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from maestro_fetch.core.config import FetchConfig
+from maestro_fetch.core.config import CACHE_DIR, FetchConfig
 from maestro_fetch.core.fetcher import Fetcher
 from maestro_fetch.core.result import FetchResult
 
@@ -24,7 +24,7 @@ async def fetch(
     model: str | None = None,
     schema: dict | None = None,
     output_format: str = "markdown",
-    cache_dir: str = str(Path.home() / ".maestro" / "cache"),
+    cache_dir: str = str(CACHE_DIR),
     timeout: int = 60,
     headers: dict[str, str] | None = None,
     cookies: dict[str, str] | None = None,

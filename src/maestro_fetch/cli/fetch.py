@@ -12,6 +12,7 @@ from typing import Optional
 
 import typer
 
+from maestro_fetch.core.config import CACHE_DIR
 from maestro_fetch.core.result import FetchResult
 from maestro_fetch.interfaces.sdk import fetch, batch_fetch
 from maestro_fetch.core.errors import FetchError
@@ -43,7 +44,7 @@ def main(
         None, "--batch", help="File containing one URL per line",
     ),
     cache_dir: str = typer.Option(
-        str(Path.home() / ".maestro" / "cache"), "--cache-dir", help="Cache directory",
+        str(CACHE_DIR), "--cache-dir", help="Cache directory",
     ),
     timeout: int = typer.Option(
         60, "--timeout", help="Request timeout in seconds",

@@ -26,6 +26,9 @@ class DaemonState:
         return ws is not None and not ws.closed
 
 
+STATE_KEY = web.AppKey("state", DaemonState)
+
+
 async def _json_response(data: dict[str, Any], *, status: int = 200) -> web.Response:
     return web.json_response(data, status=status)
 
@@ -35,7 +38,7 @@ async def health(_request: web.Request) -> web.Response:
 
 
 async def status(request: web.Request) -> web.Response:
-    state: DaemonState = request.app["state"]
+    state = request.app[STATE_KEY]
     return await _json_response(
         {
             "ok": True,
@@ -46,7 +49,7 @@ async def status(request: web.Request) -> web.Response:
 
 
 async def command(request: web.Request) -> web.Response:
-    state: DaemonState = request.app["state"]
+    state = request.app[STATE_KEY]
     if not state.extension_connected:
         return await _json_response(
             {"ok": False, "error": "Extension is not connected"},
@@ -86,7 +89,7 @@ async def command(request: web.Request) -> web.Response:
 
 
 async def extension_ws(request: web.Request) -> web.StreamResponse:
-    state: DaemonState = request.app["state"]
+    state = request.app[STATE_KEY]
     ws = web.WebSocketResponse(heartbeat=30.0)
     await ws.prepare(request)
 
@@ -132,7 +135,7 @@ async def extension_ws(request: web.Request) -> web.StreamResponse:
 
 def build_app() -> web.Application:
     app = web.Application()
-    app["state"] = DaemonState()
+    app[STATE_KEY] = DaemonState()
     app.router.add_get("/health", health)
     app.router.add_get("/status", status)
     app.router.add_post("/command", command)
@@ -168,4 +171,3 @@ def main(argv: list[str] | None = None) -> int:
     with suppress(KeyboardInterrupt):
         asyncio.run(serve(host=args.host, port=args.port))
     return 0
-

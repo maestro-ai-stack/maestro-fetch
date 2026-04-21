@@ -113,6 +113,32 @@ Attach to existing Chrome tabs via the maestro-fetch Chrome extension. Essential
 
 **Prerequisite**: Chrome must be running with the maestro-fetch extension enabled.
 
+### Chrome Extension Setup
+
+From the repo root:
+
+```bash
+cd extension
+npm install
+npm run build
+```
+
+Then in Chrome:
+
+1. Open `chrome://extensions`
+2. Turn on `Developer mode`
+3. Click `Load unpacked`
+4. Select `<repo>/extension`
+5. Confirm the `Maestro Fetch` extension is enabled
+
+Sanity check:
+
+```bash
+mfetch tab list
+```
+
+If the extension is connected, this prints current Chrome tabs instead of an availability error.
+
 ### When to use `tab` vs regular fetch
 | Scenario | Use |
 |----------|-----|

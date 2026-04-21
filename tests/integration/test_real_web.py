@@ -1,6 +1,6 @@
 """Integration tests that scrape REAL public web pages via WebAdapter.
 
-No mocks. These tests hit live URLs and verify that Crawl4AI returns
+No mocks. These tests hit live URLs and verify that the public web path returns
 meaningful Markdown content with correct metadata.
 
 All tests are marked @pytest.mark.network and will be skipped when
@@ -54,7 +54,7 @@ class TestWebAdapterRealPages:
         )
 
         assert result.tables == []
-        assert result.metadata["adapter"] == "crawl4ai"
+        assert result.metadata["adapter"] in {"httpx", "extension"}
 
     # -- Japan Statistics Bureau --------------------------------------------
 
@@ -75,7 +75,7 @@ class TestWebAdapterRealPages:
         )
 
         assert result.tables == []
-        assert result.metadata["adapter"] == "crawl4ai"
+        assert result.metadata["adapter"] in {"httpx", "extension"}
 
     # -- UNdata Portal ------------------------------------------------------
 
@@ -96,7 +96,7 @@ class TestWebAdapterRealPages:
         )
 
         assert result.tables == []
-        assert result.metadata["adapter"] == "crawl4ai"
+        assert result.metadata["adapter"] in {"httpx", "extension"}
 
     # -- MAFF Agriculture Page (English) ------------------------------------
 
@@ -117,7 +117,7 @@ class TestWebAdapterRealPages:
         )
 
         assert result.tables == []
-        assert result.metadata["adapter"] == "crawl4ai"
+        assert result.metadata["adapter"] in {"httpx", "extension"}
 
 
 # ---------------------------------------------------------------------------
@@ -162,5 +162,5 @@ class TestRouterToWeb:
         result = await fetcher.fetch("https://data.un.org/", config)
 
         assert result.source_type == "web"
-        assert result.metadata["adapter"] == "crawl4ai"
+        assert result.metadata["adapter"] in {"httpx", "extension"}
         assert len(result.content) > 100

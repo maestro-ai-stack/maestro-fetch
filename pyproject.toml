@@ -69,3 +69,7 @@ target-version = "py311"
 asyncio_mode = "auto"
 testpaths = ["tests"]
 markers = ["network: tests that require network access"]
+
+[tool.coverage.run]
+branch = true
+source = ["src/maestro_fetch"]

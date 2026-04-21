@@ -9,7 +9,7 @@ app = typer.Typer(help="Discover site content and structure.")
 
 
 def _run(coro):
-    return asyncio.get_event_loop().run_until_complete(coro)
+    return asyncio.run(coro)
 
 
 @app.callback(invoke_without_command=True, context_settings={"allow_interspersed_args": True})

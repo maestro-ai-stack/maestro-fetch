@@ -1,9 +1,7 @@
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
-from pathlib import Path
 from maestro_fetch.adapters.cloud import CloudAdapter
 from maestro_fetch.core.config import FetchConfig
-from maestro_fetch.core.errors import DownloadError
 
 
 def test_supports_dropbox():

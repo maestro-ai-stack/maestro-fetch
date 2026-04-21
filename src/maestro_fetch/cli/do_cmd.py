@@ -13,18 +13,19 @@ Architecture:
 from __future__ import annotations
 
 import asyncio
-import base64
 import json
 import os
 import textwrap
 
 import typer
 
+from maestro_fetch.core.errors import FetchError
+
 app = typer.Typer(help="Execute natural language browser tasks.")
 
 
 def _run(coro):
-    return asyncio.get_event_loop().run_until_complete(coro)
+    return asyncio.run(coro)
 
 
 SYSTEM_PROMPT = textwrap.dedent("""\
@@ -229,10 +230,6 @@ def _get_llm_caller(model: str):
 
     else:
         raise FetchError("Need ANTHROPIC_API_KEY or OPENROUTER_API_KEY for mfetch do")
-
-
-from maestro_fetch.core.errors import FetchError
-
 
 def _parse_json_action(response: str) -> dict:
     """Extract a JSON object from LLM response, handling text wrapping."""

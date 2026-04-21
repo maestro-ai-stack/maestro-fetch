@@ -2,14 +2,12 @@
 
 No mocks. No network. Just real parsing logic.
 """
-import pytest
 from pathlib import Path
 from maestro_fetch.adapters.doc import _parse_excel, _parse_csv
 from maestro_fetch.adapters.cloud import _parse_content
 from maestro_fetch.core.router import detect_type
 from maestro_fetch.core.fetcher import Fetcher
 from maestro_fetch.core.config import FetchConfig
-from maestro_fetch.core.errors import UnsupportedURLError
 
 FIXTURES = Path(__file__).parent.parent / "unit" / "fixtures"
 
@@ -31,13 +29,13 @@ class TestExcelParsing:
     def test_parse_multi_sheet_xlsx(self):
         content = (FIXTURES / "multi_sheet.xlsx").read_bytes()
         text, tables = _parse_excel(content)
-        # pandas read_excel reads first sheet by default
-        assert len(tables) == 1
+        assert len(tables) == 2
         df = tables[0]
         assert "country" in df.columns
         assert "gdp_billion" in df.columns
         assert len(df) == 3
         assert df.iloc[0]["country"] == "US"
+        assert "population_million" in tables[1].columns
 
     def test_excel_to_markdown_contains_data(self):
         content = (FIXTURES / "sample.xlsx").read_bytes()
@@ -110,11 +108,8 @@ class TestRouterIntegration:
     def test_fetcher_adapter_priority(self):
         """Cloud URLs with file extensions should go to CloudAdapter, not DocAdapter."""
         from maestro_fetch.adapters.cloud import CloudAdapter
-        from maestro_fetch.adapters.doc import DocAdapter
 
         cloud = CloudAdapter()
-        doc = DocAdapter()
-
         # Dropbox CSV link -- CloudAdapter should match, DocAdapter should NOT
         url = "https://www.dropbox.com/sh/abc/data.csv?dl=0"
         assert cloud.supports(url) is True

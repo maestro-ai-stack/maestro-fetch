@@ -1,6 +1,5 @@
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
-from maestro_fetch.providers.base import LLMProvider
 from maestro_fetch.providers.registry import get_provider
 
 

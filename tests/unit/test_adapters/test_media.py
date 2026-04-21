@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import patch
 from maestro_fetch.adapters.media import MediaAdapter
 from maestro_fetch.core.config import FetchConfig
 

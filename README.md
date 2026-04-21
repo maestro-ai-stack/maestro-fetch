@@ -17,7 +17,7 @@
   <a href="https://github.com/anthropics/skills"><img src="https://img.shields.io/badge/skills-ecosystem-blueviolet" alt="Skills Ecosystem" /></a>
 </p>
 
-Give it any URL -- web page, PDF, spreadsheet, cloud file, video, binary dataset -- and get back clean markdown or structured data. Smart routing picks the right adapter; pluggable browser backends handle anti-bot and authentication. No API key required.
+Give it any URL -- web page, PDF, spreadsheet, cloud file, video, binary dataset -- and get back clean markdown or structured data. Smart routing picks the right adapter; the native browser stack handles authentication and JS-heavy pages. No API key is required for core fetching.
 
 ---
 
@@ -108,7 +108,7 @@ AI agents need data from the web. Most rely on built-in tools like `WebFetch` (C
 | Community adapters | Extensible (economics, climate, social, ...) | No | No | No |
 | Cache | SQLite + content-addressed + TTL + LRU | No | No | No |
 | Batch operations | Concurrent with configurable parallelism | API-based | No | No |
-| Interactive sessions | `session start/click/fill/screenshot/eval` | No | No | No |
+| Interactive sessions | `mfetch tab` + `mfetch do` | No | No | No |
 
 maestro-fetch treats "fetch" as a universal problem -- not just web scraping. Give it any URI and it figures out the rest: route to the right adapter, pick a browser backend if needed, parse the content, return markdown or structured data.
 
@@ -270,6 +270,13 @@ git clone https://github.com/maestro-ai-stack/maestro-fetch.git
 cd maestro-fetch
 uv sync --extra dev                          # or: python3.11 -m venv .venv && pip install -e ".[dev]"
 pytest tests/ -v
+```
+
+### Test matrix
+
+```bash
+pytest -q                 # stable local/CI suite
+pytest --run-network -q   # live network regression suite
 ```
 
 ---

@@ -1,6 +1,5 @@
-import json
 from typer.testing import CliRunner
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import patch
 from maestro_fetch.interfaces.cli import app
 from maestro_fetch.core.result import FetchResult
 
