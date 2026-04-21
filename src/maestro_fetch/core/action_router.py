@@ -3,10 +3,8 @@
 Routing strategy:
   Layer 1 (API)      — twikit/praw, READ only, fast, no browser
   Layer 2 (Pipeline) — extension backend, READ+WRITE
-  Layer 3 (LLM)      — browser-use, universal fallback
 
 Write operations skip Layer 1, try Pipeline first.
-Unregistered platform+action combos go directly to Layer 3.
 """
 from __future__ import annotations
 
@@ -40,8 +38,7 @@ class ActionRouter:
         pa = get_action(platform, action)
 
         if pa is None:
-            logger.info("Unregistered action %s/%s — routing to LLM layer", platform, action)
-            return await self._execute_llm(platform, action, *args, **kwargs)
+            raise FetchError(f"Unregistered action: {platform}/{action}")
 
         errors: list[str] = []
         for layer in pa.layers:
@@ -50,10 +47,6 @@ class ActionRouter:
                     return await self._execute_api(pa, *args, **kwargs)
                 if layer == Layer.PIPELINE:
                     return await self._execute_pipeline(pa, *args, **kwargs)
-                if layer == Layer.LLM:
-                    return await self._execute_llm(
-                        pa.platform, pa.action, *args, **kwargs
-                    )
             except Exception as exc:
                 msg = f"Layer {layer.value} failed: {exc}"
                 logger.warning(msg)
@@ -136,34 +129,3 @@ class ActionRouter:
         adapter_key = f"{site}/{action_name}"
         result = await backend.site_adapter(adapter_key, *(args or ()))
         return {"success": True, "layer": "extension", **result}
-
-    # -- Layer 3: LLM (browser-use) -------------------------------------
-
-    async def _execute_llm(
-        self, platform: str, action: str, *args: str, **kwargs: Any
-    ) -> dict:
-        """Execute via browser-use LLM-driven browser."""
-        from maestro_fetch.backends.browser_use import BrowserUseBackend
-
-        backend_cfg = self._config.get("backends", {}).get("browser-use", {})
-        model = backend_cfg.get("model", "claude-sonnet-4-20250514")
-        timeout = backend_cfg.get("timeout", 120)
-        backend = BrowserUseBackend(model=model, timeout=timeout)
-
-        if not await backend.is_available():
-            raise FetchError(
-                "browser-use is not installed: pip install 'browser-use>=0.2'"
-            )
-
-        # Build natural language task
-        task_parts = [f"On {platform}, {action}"]
-        if args:
-            task_parts.append(" ".join(args))
-        if kwargs:
-            for k, v in kwargs.items():
-                task_parts.append(f"{k}={v}")
-        task = " ".join(task_parts)
-
-        url = kwargs.get("url")
-        result = await backend.execute_task(task, url=url)
-        return {"layer": "llm", **result}

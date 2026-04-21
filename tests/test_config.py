@@ -57,7 +57,7 @@ def test_load_config_with_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
     assert config["output"]["format"] == "json"
     # Un-overridden keys still present
     assert "browser" in config
-    assert config["backends"]["priority"] == ["bb-browser", "cloudflare", "playwright"]
+    assert config["backends"]["priority"] == ["extension"]
 
 
 def test_write_default_config(tmp_path: Path) -> None:

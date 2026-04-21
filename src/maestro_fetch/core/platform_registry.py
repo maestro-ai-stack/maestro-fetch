@@ -13,8 +13,7 @@ class Layer(str, Enum):
     """Execution layers, ordered by preference."""
 
     API = "api"  # twikit, praw — READ only, fast, no browser
-    PIPELINE = "pipeline"  # extension + opencli YAML pipelines — READ+WRITE
-    LLM = "llm"  # browser-use — universal fallback
+    PIPELINE = "pipeline"  # extension-backed browser pipeline — READ+WRITE
 
 
 @dataclass(frozen=True)
@@ -24,32 +23,31 @@ class PlatformAction:
     platform: str
     action: str
     is_write: bool = False
-    layers: tuple[Layer, ...] = (Layer.PIPELINE, Layer.LLM)
-    opencli_command: str | None = None  # e.g. "twitter like"
+    layers: tuple[Layer, ...] = (Layer.PIPELINE,)
+    browser_command: str | None = None  # e.g. "twitter like"
     source_adapter: str | None = None  # e.g. "twitter/timeline"
     description: str = ""
 
 
 def _read(platform: str, action: str, *, source: str | None = None,
-          opencli_cmd: str | None = None, desc: str = "") -> PlatformAction:
-    """Helper to create a READ action with all three layers."""
-    layers = (Layer.API, Layer.PIPELINE, Layer.LLM)
+          browser_cmd: str | None = None, desc: str = "") -> PlatformAction:
+    """Helper to create a READ action routed through API then browser."""
+    layers = (Layer.API, Layer.PIPELINE)
     if not source:
-        layers = (Layer.PIPELINE, Layer.LLM)
+        layers = (Layer.PIPELINE,)
     return PlatformAction(
         platform=platform, action=action, is_write=False,
-        layers=layers, opencli_command=opencli_cmd,
+        layers=layers, browser_command=browser_cmd,
         source_adapter=source, description=desc,
     )
 
 
-def _write(platform: str, action: str, *, opencli_cmd: str | None = None,
+def _write(platform: str, action: str, *, browser_cmd: str | None = None,
            desc: str = "") -> PlatformAction:
     """Helper to create a WRITE action (skips API layer)."""
     return PlatformAction(
         platform=platform, action=action, is_write=True,
-        layers=(Layer.PIPELINE, Layer.LLM),
-        opencli_command=opencli_cmd, description=desc,
+        layers=(Layer.PIPELINE,), browser_command=browser_cmd, description=desc,
     )
 
 
@@ -70,13 +68,13 @@ _register(
     _read("twitter", "timeline", source="twitter/timeline", desc="Home timeline"),
     _read("twitter", "search", source="twitter/search", desc="Search tweets"),
     _read("twitter", "trending", source="twitter/trending", desc="Trending topics"),
-    _write("twitter", "like", opencli_cmd="twitter like", desc="Like a tweet"),
-    _write("twitter", "post", opencli_cmd="twitter post", desc="Post a tweet"),
-    _write("twitter", "repost", opencli_cmd="twitter repost", desc="Retweet"),
-    _write("twitter", "quote", opencli_cmd="twitter quote", desc="Quote tweet"),
-    _write("twitter", "bookmark", opencli_cmd="twitter bookmark", desc="Bookmark a tweet"),
+    _write("twitter", "like", browser_cmd="twitter like", desc="Like a tweet"),
+    _write("twitter", "post", browser_cmd="twitter post", desc="Post a tweet"),
+    _write("twitter", "repost", browser_cmd="twitter repost", desc="Retweet"),
+    _write("twitter", "quote", browser_cmd="twitter quote", desc="Quote tweet"),
+    _write("twitter", "bookmark", browser_cmd="twitter bookmark", desc="Bookmark a tweet"),
     _write("twitter", "unbookmark", desc="Remove a bookmark"),
-    _write("twitter", "reply", opencli_cmd="twitter reply", desc="Reply to a tweet"),
+    _write("twitter", "reply", browser_cmd="twitter reply", desc="Reply to a tweet"),
     _write("twitter", "follow", desc="Follow a user"),
     _write("twitter", "unfollow", desc="Unfollow a user"),
     _write("twitter", "delete", desc="Delete a tweet"),
@@ -99,15 +97,15 @@ _register(
 
 # -- Bilibili --------------------------------------------------------------
 _register(
-    _read("bilibili", "hot", opencli_cmd="bilibili hot", desc="Bilibili hot videos"),
-    _read("bilibili", "search", opencli_cmd="bilibili search", desc="Search Bilibili"),
-    _read("bilibili", "feed", opencli_cmd="bilibili feed", desc="Bilibili feed"),
+    _read("bilibili", "hot", browser_cmd="bilibili hot", desc="Bilibili hot videos"),
+    _read("bilibili", "search", browser_cmd="bilibili search", desc="Search Bilibili"),
+    _read("bilibili", "feed", browser_cmd="bilibili feed", desc="Bilibili feed"),
 )
 
 # -- 小红书 (Xiaohongshu / RED) ---------------------------------------------
 _register(
-    _read("xiaohongshu", "hot", opencli_cmd="xiaohongshu hot", desc="Xiaohongshu hot"),
-    _read("xiaohongshu", "search", opencli_cmd="xiaohongshu search", desc="Search Xiaohongshu"),
+    _read("xiaohongshu", "hot", browser_cmd="xiaohongshu hot", desc="Xiaohongshu hot"),
+    _read("xiaohongshu", "search", browser_cmd="xiaohongshu search", desc="Search Xiaohongshu"),
 )
 
 # -- Hacker News -----------------------------------------------------------

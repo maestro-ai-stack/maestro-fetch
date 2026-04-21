@@ -45,18 +45,16 @@ DEFAULT_CONFIG: dict = {
     "output": {
         "format": "markdown",
     },
+    "automation": {
+        "model": "claude-sonnet-4-20250514",
+        "timeout": 120,
+    },
     "backends": {
-        "priority": ["extension", "browser-use"],
+        "priority": ["extension"],
         "extension": {
             "enabled": True,
             "port": 19825,
             "workspace": "mfetch",
-            "daemon_binary": "opencli-rs",
-        },
-        "browser-use": {
-            "enabled": False,
-            "model": "claude-sonnet-4-20250514",
-            "timeout": 120,
         },
     },
     "auth": {
@@ -133,14 +131,17 @@ def write_default_config(path: Path | None = None) -> Path:
         "[output]",
         'format = "markdown"',
         "",
+        "[automation]",
+        'model = "claude-sonnet-4-20250514"',
+        "timeout = 120",
+        "",
         "[backends]",
-        'priority = ["extension", "browser-use"]',
+        'priority = ["extension"]',
         "",
         "[backends.extension]",
         "enabled = true",
         "port = 19825",
         'workspace = "mfetch"',
-        'daemon_binary = "opencli-rs"',
         "",
     ]
     dest.write_text("\n".join(lines) + "\n", encoding="utf-8")

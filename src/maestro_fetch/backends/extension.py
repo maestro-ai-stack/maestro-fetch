@@ -1,26 +1,26 @@
-"""Extension backend -- real Chrome via opencli daemon + Chrome extension.
+"""Extension backend -- real Chrome via the mfetch daemon + Chrome extension.
 
 Architecture:
-    mfetch (Python)  --HTTP-->  daemon (port 19825)  --WebSocket-->  Chrome extension
+    mfetch (Python)  --HTTP-->  mfetch daemon (port 19825)  --WebSocket-->  Chrome extension
                                                                         |
                                                                    chrome.debugger API
                                                                         |
                                                                    real browser tab
 
-The daemon is an Axum HTTP+WS server bundled with opencli-rs.
+The daemon is shipped inside maestro-fetch itself.
 The Chrome extension uses chrome.debugger to control pages in a
 dedicated automation window, isolated from the user's browsing.
 
-Connection lifecycle (ported from opencli-rs bridge.rs):
+Connection lifecycle:
     1. GET /health      -> daemon running?
-    2. spawn daemon     -> opencli-rs --daemon --port {port}
+    2. spawn daemon     -> python -m maestro_fetch.daemon --port {port}
     3. poll /health     -> wait 10s for daemon ready
     4. GET /status      -> extension connected?
     5. wake Chrome      -> open -a "Google Chrome" about:blank
     6. poll /status     -> wait 30s for extension
 
 Protocol:
-    POST /command  with X-OpenCLI header
+    POST /command  with X-MFetch header
     Body: {"id": uuid, "action": "navigate|exec|screenshot|tabs|cookies", ...}
     Response: {"id": uuid, "ok": bool, "data": ..., "error": ...}
 """
@@ -29,11 +29,14 @@ from __future__ import annotations
 import asyncio
 import base64
 import logging
+import os
 import platform
 import re
 import shutil
 import subprocess
+import sys
 import uuid
+from pathlib import Path
 from typing import Any
 
 from maestro_fetch.core.errors import FetchError
@@ -51,10 +54,10 @@ _RETRY_DELAYS = [0.2, 0.5, 1.0, 2.0]
 
 
 class ExtensionBackend:
-    """Browser backend via opencli Chrome extension + daemon.
+    """Browser backend via the mfetch Chrome extension + daemon.
 
     Uses the real Chrome browser with full auth/cookies/JS support.
-    Requires: opencli-rs binary + Chrome extension installed.
+    Requires: Chrome + the maestro-fetch extension.
     """
 
     name: str = "extension"
@@ -63,11 +66,9 @@ class ExtensionBackend:
         self,
         port: int = _DEFAULT_PORT,
         workspace: str = "mfetch",
-        daemon_binary: str = "opencli-rs",
     ) -> None:
         self._port = port
         self._workspace = workspace
-        self._daemon_binary = daemon_binary
         self._base_url = f"http://127.0.0.1:{port}"
         self._connected = False
 
@@ -83,7 +84,7 @@ class ExtensionBackend:
             async with httpx.AsyncClient(timeout=timeout) as client:
                 resp = await client.get(
                     f"{self._base_url}{path}",
-                    headers={"X-OpenCLI": "1"},
+                    headers={"X-MFetch": "1"},
                 )
                 if resp.status_code == 200:
                     return resp.json()
@@ -106,7 +107,7 @@ class ExtensionBackend:
                 async with httpx.AsyncClient(timeout=_COMMAND_TIMEOUT) as client:
                     resp = await client.post(
                         url,
-                        headers={"X-OpenCLI": "1"},
+                        headers={"X-MFetch": "1"},
                         json=cmd,
                     )
 
@@ -168,14 +169,14 @@ class ExtensionBackend:
                 return resp.status_code == 200
         except Exception:
             pass
-        # Also check if something is listening (could be original opencli daemon)
+        # Also check if something is listening and can answer health.
         try:
             async with httpx.AsyncClient(timeout=2) as client:
                 resp = await client.get(
                     f"{self._base_url}/health",
-                    headers={"X-OpenCLI": "1"},
+                    headers={"X-MFetch": "1"},
                 )
-                return resp.status_code in (200, 403)
+                return resp.status_code == 200
         except Exception:
             return False
 
@@ -184,28 +185,28 @@ class ExtensionBackend:
         result = await self._http_get("/status")
         if result is None:
             return False
-        # opencli-rs format: {"extension": bool}
-        # original opencli: {"extensionConnected": bool}
         return bool(
             result.get("extension") or result.get("extensionConnected")
         )
 
     async def _spawn_daemon(self) -> None:
         """Spawn daemon as a detached subprocess."""
-        binary = shutil.which(self._daemon_binary)
-        if binary is None:
-            raise FetchError(
-                f"Cannot find '{self._daemon_binary}' on PATH. "
-                "Install opencli-rs or set daemon_binary in config."
-            )
+        src_root = Path(__file__).resolve().parents[2]
+        env = os.environ.copy()
+        pythonpath_parts = [str(src_root)]
+        if env.get("PYTHONPATH"):
+            pythonpath_parts.append(env["PYTHONPATH"])
+        env["PYTHONPATH"] = os.pathsep.join(pythonpath_parts)
 
-        log.info("Spawning daemon: %s --daemon --port %d", binary, self._port)
+        log.info("Spawning daemon: %s -m maestro_fetch.daemon --port %d", sys.executable, self._port)
         subprocess.Popen(
-            [binary, "--daemon", "--port", str(self._port)],
+            [sys.executable, "-m", "maestro_fetch.daemon", "--port", str(self._port)],
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             start_new_session=True,
+            env=env,
+            cwd=str(src_root.parent),
         )
 
     async def _wait_for_daemon(self) -> None:
@@ -337,8 +338,8 @@ class ExtensionBackend:
             self._connected = True
             return True
 
-        # Also available if we can find the daemon binary (will auto-spawn on use)
-        if shutil.which(self._daemon_binary) is not None and self._is_chrome_running():
+        # We can always self-spawn the internal daemon when Chrome is running.
+        if self._is_chrome_running():
             return True
 
         return False

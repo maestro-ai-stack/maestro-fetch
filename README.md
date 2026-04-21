@@ -91,7 +91,7 @@ AI agents need data from the web. Most rely on built-in tools like `WebFetch` (C
 | **Speed** | httpx direct — no LLM overhead | HTTP GET + small model processing (extra round-trip) |
 | **Token cost** | Raw content → main model. **Single pass.** | Small model summarizes → main model reads summary. **Double pass.** |
 | **Content quality** | Full raw markdown, tables as DataFrames, PDFs via Docling | Summarized by small model — large pages truncated, details lost |
-| **Recall rate** | 4-tier browser fallback (Extension → CDP → httpx → Playwright), anti-bot bypass, login session reuse | Plain HTTP GET only — no JS rendering, no auth, WAF blocks fail |
+| **Recall rate** | Native browser stack (httpx → Extension), login session reuse, authenticated Chrome execution when needed | Plain HTTP GET only — no JS rendering, no auth, WAF blocks fail |
 
 ### mfetch vs other fetch tools
 
@@ -102,8 +102,8 @@ AI agents need data from the web. Most rely on built-in tools like `WebFetch` (C
 | Video transcription | yt-dlp + Whisper | No | No | No |
 | Cloud storage | Google Drive, Dropbox, Baidu Pan | No | No | No |
 | Binary datasets | GeoTIFF, NetCDF, Parquet, HDF5, Stata, ... | No | No | No |
-| Browser backends | 4 pluggable (Extension, CDP, httpx, Playwright) | Hosted only | Hosted only | Playwright only |
-| Auth / login reuse | CDP reuses Chrome sessions, cookie import | No | No | No |
+| Browser backends | Native stack (Extension + httpx) | Hosted only | Hosted only | Playwright only |
+| Auth / login reuse | Extension reuses Chrome sessions and cookies | No | No | No |
 | Hosting | Local, no API key required | SaaS ($) | SaaS ($) | Local |
 | Community adapters | Extensible (economics, climate, social, ...) | No | No | No |
 | Cache | SQLite + content-addressed + TTL + LRU | No | No | No |
@@ -130,7 +130,7 @@ Tested on macOS (Apple Silicon), Python 3.11, uv 0.11.2. March 2026.
 | Tool | Pipeline | Latency |
 |------|----------|---------|
 | **mfetch** (httpx) | HTTP GET → html2text → raw markdown | **~200ms** |
-| **mfetch** (Extension/CDP) | Chrome tab → extract → markdown | ~500ms |
+| **mfetch** (Extension) | Chrome tab → extract → markdown | ~500ms |
 | **WebFetch** | HTTP GET → html2text → small LLM call → summary | ~2-5s |
 | **curl + manual parse** | HTTP GET → raw HTML (no processing) | ~150ms |
 
@@ -148,8 +148,8 @@ Tested on macOS (Apple Silicon), Python 3.11, uv 0.11.2. March 2026.
 | 10 KB HTML page | 100% content preserved | ~90% (minor summarization) |
 | 100 KB HTML page | 100% content preserved | ~60% (significant truncation) |
 | PDF with tables | Tables as DataFrames, full text | Not supported |
-| JS-rendered SPA | Full render via Extension/CDP | Fails (no JS engine) |
-| Login-required page | CDP reuses Chrome session | Fails (no auth) |
+| JS-rendered SPA | Full render via Extension | Fails (no JS engine) |
+| Login-required page | Extension reuses Chrome session | Fails (no auth) |
 
 ---
 
@@ -157,13 +157,13 @@ Tested on macOS (Apple Silicon), Python 3.11, uv 0.11.2. March 2026.
 
 | Adapter | Source types | Examples |
 |---|---|---|
-| `web` | HTML pages, APIs, SPAs | Any URL; falls back through Extension → CDP → httpx → Playwright |
+| `web` | HTML pages, APIs, SPAs | Any URL; uses httpx first, then the native extension backend when browser execution is required |
 | `doc` | Documents and spreadsheets | `.pdf`, `.xlsx`, `.xls`, `.ods`, `.csv` |
 | `binary` | Archives, geospatial, data science | `.zip`, `.parquet`, `.tif`, `.nc`, `.hdf5`, `.shp`, `.feather` |
 | `cloud` | Cloud storage | Google Drive, Google Docs/Sheets, Dropbox |
 | `media` | Video and audio | YouTube, Vimeo (transcription via yt-dlp + Whisper) |
 | `baidu_pan` | Baidu Pan | `pan.baidu.com` links via OAuth + PCS API |
-| `browser` | Authenticated / JS-heavy pages | Playwright interactive sessions |
+| `browser` | Authenticated / JS-heavy pages | Chrome extension-backed interactive sessions |
 | `source` | Community adapters | World Bank, FRED, NOAA, academic datasets, ... |
 
 ---
@@ -190,15 +190,13 @@ mfetch source info worldbank/gdp                   # show args and examples
 mfetch source run worldbank/gdp CN                 # fetch World Bank GDP for China
 ```
 
-### Interactive browser sessions
+### Interactive browser tasks
 
 ```bash
-mfetch session start "https://login-required.com"
-mfetch session fill "#email" "user@example.com"
-mfetch session click "#submit"
-mfetch session snapshot                            # current page as markdown
-mfetch session screenshot                          # save screenshot
-mfetch session end
+mfetch discover "https://login-required.com"
+mfetch tab list
+mfetch tab snapshot 123
+mfetch do "log into this site and open the billing page" --url "https://login-required.com"
 ```
 
 ### Cache management
@@ -250,7 +248,7 @@ result = await fetch(
 
 ```bash
 uv tool install maestro-fetch                # core only
-uv tool install "maestro-fetch[all]"         # everything (PDF, media, browser, LLM, social)
+uv tool install "maestro-fetch[all]"         # everything (PDF, media, LLM, social, native browser daemon)
 ```
 
 ### pip
@@ -259,7 +257,6 @@ uv tool install "maestro-fetch[all]"         # everything (PDF, media, browser, 
 pip install maestro-fetch                    # core
 pip install maestro-fetch[pdf]               # PDF + Excel (Docling, openpyxl)
 pip install maestro-fetch[media]             # YouTube/audio (yt-dlp, Whisper)
-pip install maestro-fetch[browser]           # Interactive sessions (Playwright)
 pip install maestro-fetch[anthropic]         # Claude LLM extraction
 pip install maestro-fetch[openai]            # GPT LLM extraction
 pip install maestro-fetch[social]            # Twitter/Reddit API adapters
@@ -300,14 +297,10 @@ CLI / SDK / MCP
        ↓
    Adapter dispatch (priority: BaiduPan > Cloud > Binary > Doc > Web)
        ↓
-   Web adapter fallback chain:
-       Extension (real Chrome + opencli daemon, full auth)
-           ↓ fail/unavailable
-       CDP (Chrome DevTools Protocol, session reuse)
-           ↓ fail/unavailable
+   Web adapter native stack:
        httpx (plain async GET, fastest for static pages)
-           ↓ fail/WAF detected
-       Playwright (headless Chromium, anti-bot stealth)
+           ↓ login wall / JS requirement
+       Extension (real Chrome + mfetch daemon, full auth)
        ↓
    Optional: LLM extraction (--schema)
        ↓
@@ -316,7 +309,7 @@ CLI / SDK / MCP
    FetchResult → markdown | json | csv | parquet
 ```
 
-**Router decision chain:** (1) match community source adapter (`@meta`) → dispatch to source; (2) match built-in adapter by URL pattern → dispatch directly; (3) web fallback chain for everything else.
+**Router decision chain:** (1) match community source adapter (`@meta`) → dispatch to source; (2) match built-in adapter by URL pattern → dispatch directly; (3) native web stack for everything else.
 
 ---
 
@@ -329,15 +322,17 @@ Config lives at `~/.maestro-fetch/config.toml`. Generate with `mfetch config ini
 max_size = "5GB"
 default_ttl = 86400
 
+[automation]
+model = "claude-sonnet-4-20250514"
+timeout = 120
+
 [backends]
-priority = ["extension", "cdp", "playwright"]
+priority = ["extension"]
 
 [backends.extension]
 enabled = true
 port = 19825
 
-[backends.cdp]
-endpoint = "http://127.0.0.1:9222"
 ```
 
 Storage: `~/.maestro-fetch/` contains `config.toml`, `cache.db`, `cache/`, `sources/`, `custom/`, `auth/`.

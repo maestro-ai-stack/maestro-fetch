@@ -30,6 +30,7 @@ Token stored at: ~/.bypy/bypy.json  (bypy-compatible format)
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import sys
 from pathlib import Path
@@ -278,91 +279,68 @@ async def _download_dlink(
 
 
 # ---------------------------------------------------------------------------
-# Playwright-based share save (handles bdstoken + JS rendering)
+# Browser-assisted share save via the mfetch extension backend
 # ---------------------------------------------------------------------------
 
-async def _save_share_via_playwright(url: str, access_token: str) -> str:
-    """Open share link in a playwright browser, click '保存到网盘', return saved_name.
 
-    Uses playwright with a persistent profile so Baidu login session is reused.
-    Falls back to interactive login if the session is missing.
+async def _save_share_via_browser(url: str, access_token: str) -> str:
+    """Open the share link in Chrome, save to Baidu Pan, return the saved name."""
+    from maestro_fetch.backends.extension import ExtensionBackend
 
-    Returns: the server_filename of the top-level saved item (file or directory).
-    Baidu Pan saves to the pan root by default.
-    """
-    try:
-        from playwright.async_api import async_playwright
-    except ImportError as exc:
+    backend = ExtensionBackend(workspace="site:baidu-pan")
+    if not await backend.is_available():
         raise DownloadError(
-            "playwright is required for Baidu Pan share saving: pip install playwright"
-        ) from exc
-
-    # Use a persistent profile so Baidu login session is reused across calls.
-    user_data_dir = str(Path.home() / ".maestro_fetch" / "playwright_profile")
-
-    async with async_playwright() as pw:
-        ctx = await pw.chromium.launch_persistent_context(
-            user_data_dir=user_data_dir,
-            headless=False,              # show browser so user can log in if needed
-            args=["--disable-blink-features=AutomationControlled"],
+            "Baidu Pan saving requires Chrome with the maestro-fetch extension enabled."
         )
-        page = ctx.pages[0] if ctx.pages else await ctx.new_page()
 
-        # Register share/list interceptor BEFORE navigation so we don't miss early responses.
-        share_list_data: list[dict] = []
+    await backend.navigate(url)
+    await asyncio.sleep(3.0)
 
-        async def handle_response(resp):
-            if "share/list" in resp.url or "shareinfo" in resp.url:
-                try:
-                    data = await resp.json()
-                    share_list_data.extend(data.get("list", []))
-                except Exception:
-                    pass
+    pwd = parse_qs(urlparse(url).query).get("pwd", [""])[0]
+    if pwd:
+        await backend.eval_js(
+            """
+            (() => {
+              const input = document.querySelector("input[placeholder*='提取码'], input[placeholder*='密码']");
+              if (!input) return "no-password-input";
+              input.focus();
+              input.value = %s;
+              input.dispatchEvent(new Event("input", { bubbles: true }));
+              input.dispatchEvent(new Event("change", { bubbles: true }));
+              const submit = Array.from(document.querySelectorAll("button, a"))
+                .find((el) => /提取文件|确定/.test(el.textContent || ""));
+              if (submit) {
+                submit.click();
+                return "password-submitted";
+              }
+              return "password-filled";
+            })()
+            """
+            % json.dumps(pwd, ensure_ascii=False)
+        )
+        await asyncio.sleep(3.0)
 
-        page.on("response", handle_response)
-        await page.goto(url, wait_until="domcontentloaded", timeout=30_000)
+    page_text = str(await backend.eval_js("document.body.innerText || ''"))
+    if "登录" in page_text or "去登录" in page_text:
+        print("[BaiduPan] Please log in inside the Chrome window opened by mfetch.")
+        print("           After the page is fully logged in, press Enter to continue.")
+        sys.stdin.readline()
+        await backend.navigate(url)
+        await asyncio.sleep(3.0)
 
-        # Check if we need to enter the pwd (extract code input visible)
-        pwd_input = page.locator("input[placeholder*='提取码'], input[placeholder*='密码']")
-        if await pwd_input.count() > 0:
-            import re as _re
-            pwd = _re.search(r"[?&]pwd=([^&]+)", url)
-            if pwd:
-                await pwd_input.first.fill(pwd.group(1))
-                await page.locator(
-                    "button:has-text('提取文件'), button:has-text('确定')"
-                ).first.click()
+    await backend.eval_js(
+        """
+        (() => {
+          const save = Array.from(document.querySelectorAll("button, a"))
+            .find((el) => /保存到网盘/.test(el.textContent || ""));
+          if (!save) return "save-button-not-found";
+          save.click();
+          return "save-clicked";
+        })()
+        """
+    )
+    await asyncio.sleep(5.0)
 
-        # Check if we're not logged in (login prompt)
-        login_btn = page.locator("text=登录, text=去登录")
-        if await login_btn.count() > 0:
-            print("[BaiduPan] Please log in to Baidu in the browser window that opened.")
-            print("           After logging in, press Enter here to continue.")
-            sys.stdin.readline()
-            await page.goto(url, wait_until="domcontentloaded", timeout=30_000)
-
-        # Wait for share/list XHR (Baidu SPA fires it after domcontentloaded).
-        # 5s is generous; typical load is <2s on a good connection.
-        await page.wait_for_timeout(5000)
-        page.remove_listener("response", handle_response)
-
-        # Click 保存到网盘 (may not exist if already saved -- that's OK)
-        save_btn = page.locator("button:has-text('保存到网盘'), a:has-text('保存到网盘')")
-        if await save_btn.count() > 0:
-            await save_btn.first.click()
-            await page.wait_for_timeout(3000)
-
-        await ctx.close()
-
-    # Determine saved_name: from intercepted share/list (most reliable),
-    # or fallback to newest item in pan root by modification time.
-    if share_list_data:
-        # The top-level item in the share -- could be file or directory.
-        first = share_list_data[0]
-        return first.get("server_filename", "download")
-
-    # Fallback: list pan root sorted by time desc and return newest entry.
-    # This assumes the just-saved item is the most recently modified.
     async with httpx.AsyncClient(timeout=30) as _client:
         r = await _client.get(
             "https://pan.baidu.com/rest/2.0/xpan/file",
@@ -413,9 +391,9 @@ class BaiduPanAdapter(BaseAdapter):
         timeout = config.timeout or 120
 
         async with httpx.AsyncClient(follow_redirects=True, timeout=timeout) as client:
-            # Step 1: save share to own pan via playwright (handles bdstoken/JS).
+            # Step 1: save share to own pan via the extension backend.
             # Baidu Pan saves to pan root by default; saved_name is the top-level item.
-            saved_name = await _save_share_via_playwright(url, access_token)
+            saved_name = await _save_share_via_browser(url, access_token)
 
             # Step 2: locate the primary data file (may be inside a directory).
             dlink, filename = await _resolve_dlink(client, access_token, saved_name)

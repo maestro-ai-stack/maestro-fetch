@@ -12,7 +12,7 @@ def _run(coro):
     return asyncio.get_event_loop().run_until_complete(coro)
 
 
-@app.callback(invoke_without_command=True)
+@app.callback(invoke_without_command=True, context_settings={"allow_interspersed_args": True})
 def discover(
     url: str = typer.Argument(..., help="URL to explore"),
 ) -> None:

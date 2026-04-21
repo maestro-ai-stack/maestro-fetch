@@ -4,24 +4,21 @@ Instantiates browser backends from config and probes availability
 in the order specified by ``config["backends"]["priority"]``.
 
 Default priority:
-    1. extension   — real Chrome via daemon + Chrome extension (auth, JS, cookies)
-    2. browser-use — LLM-driven browser automation fallback
+    1. extension — real Chrome via daemon + Chrome extension (auth, JS, cookies)
 """
 from __future__ import annotations
 
 from maestro_fetch.backends.base import BrowserBackend
-from maestro_fetch.backends.browser_use import BrowserUseBackend
 from maestro_fetch.backends.extension import ExtensionBackend
 
 __all__ = [
     "BrowserBackend",
-    "BrowserUseBackend",
     "ExtensionBackend",
     "get_available_backends",
     "get_best_backend",
 ]
 
-_DEFAULT_PRIORITY = ["extension", "browser-use"]
+_DEFAULT_PRIORITY = ["extension"]
 
 
 def _make_backend(name: str, cfg: dict) -> BrowserBackend | None:
@@ -33,14 +30,7 @@ def _make_backend(name: str, cfg: dict) -> BrowserBackend | None:
     if name == "extension":
         port = backend_cfg.get("port", 19825)
         workspace = backend_cfg.get("workspace", "mfetch")
-        daemon_binary = backend_cfg.get("daemon_binary", "opencli-rs")
-        return ExtensionBackend(
-            port=port, workspace=workspace, daemon_binary=daemon_binary
-        )
-    if name == "browser-use":
-        model = backend_cfg.get("model", "claude-sonnet-4-20250514")
-        timeout = backend_cfg.get("timeout", 120)
-        return BrowserUseBackend(model=model, timeout=timeout)
+        return ExtensionBackend(port=port, workspace=workspace)
     return None
 
 
@@ -48,7 +38,7 @@ async def get_available_backends(config: dict) -> list[BrowserBackend]:
     """Return backends that are installed and configured, in priority order.
 
     Priority comes from ``config["backends"]["priority"]``; falls back
-    to ``["extension", "cdp", "playwright"]``.
+    to ``["extension"]``.
     """
     priority = (
         config.get("backends", {}).get("priority", _DEFAULT_PRIORITY)

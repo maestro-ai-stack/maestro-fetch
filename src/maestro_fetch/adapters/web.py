@@ -3,11 +3,9 @@
 Responsibility: handle generic web URLs (HTML pages, JS-rendered SPAs).
 Non-goals: PDF, spreadsheets, cloud storage, media -- handled by dedicated adapters.
 
-Strategy (4-tier fallback, fast-first):
+Strategy (2-tier, fast-first):
     1. httpx plain GET -- fastest, try first for static pages
     2. Extension backend (real Chrome via daemon + extension) -- auth, JS, cookies
-    3. CDP backend (Chrome with --remote-debugging-port) -- auth, no extension
-    4. playwright-stealth -- WAF/anti-bot bypass, headless fallback
 """
 from __future__ import annotations
 
@@ -145,7 +143,7 @@ async def _httpx_fetch(url: str, config: FetchConfig) -> str:
 
 
 class WebAdapter(BaseAdapter):
-    """Fetches web pages with 2-tier fallback (fast-first).
+    """Fetches web pages with a fast-first native stack.
 
     Strategy:
         1. httpx plain GET -- fastest, try first

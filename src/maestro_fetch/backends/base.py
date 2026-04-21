@@ -13,7 +13,7 @@ from typing import Any, Protocol, runtime_checkable
 class BrowserBackend(Protocol):
     """Contract for browser backends.
 
-    Implementations: extension, cdp, playwright.
+    Implementations: extension and future mfetch-native browser runtimes.
     The router iterates backends by config priority and uses the first
     one where ``is_available()`` returns True.
     """

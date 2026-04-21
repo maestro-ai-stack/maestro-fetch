@@ -89,7 +89,7 @@ class SourceContext:
             return await client.get(url, **kwargs)
 
     async def browser_fetch(self, url: str) -> str:
-        """Fetch URL through the browser backend (bb-browser preferred)."""
+        """Fetch URL through the browser backend."""
         if self._browser_fetch is None:
             raise RuntimeError("No browser backend available for browser_fetch")
         return await self._browser_fetch(url)

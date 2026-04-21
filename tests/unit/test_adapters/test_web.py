@@ -23,7 +23,6 @@ async def test_fetch_returns_markdown():
     config = FetchConfig()
 
     with patch("maestro_fetch.adapters.web._extension_fetch", new_callable=AsyncMock, return_value=None), \
-         patch("maestro_fetch.adapters.web._cdp_fetch", new_callable=AsyncMock, return_value=None), \
          patch("maestro_fetch.adapters.web._httpx_fetch", new_callable=AsyncMock, return_value="# Hello\n\nWorld"):
         result = await a.fetch("https://example.com", config)
 

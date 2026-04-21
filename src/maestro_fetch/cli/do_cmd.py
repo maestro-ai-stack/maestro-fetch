@@ -1,7 +1,7 @@
 """``mfetch do "natural language task"`` — extension-first browser automation.
 
 Uses the Chrome extension backend (real browser, real cookies) for interaction,
-with LLM planning the actions. Falls back to browser-use if extension unavailable.
+with LLM planning the actions.
 
 Architecture:
     LLM (via API) plans actions based on page content/screenshots
@@ -74,7 +74,10 @@ async def _extension_agent_loop(task: str, url: str | None, model: str, timeout:
     ext = ExtensionBackend()
 
     if not await ext.is_available():
-        return None  # Signal to fall back to browser-use
+        raise FetchError(
+            "Extension backend is not available. "
+            "Open Chrome with the maestro-fetch extension enabled."
+        )
 
     typer.echo("Using Chrome extension backend (real browser)")
 
@@ -265,55 +268,26 @@ def _parse_json_action(response: str) -> dict:
     raise ValueError("No complete JSON object found in response")
 
 
-@app.callback(invoke_without_command=True)
+@app.callback(invoke_without_command=True, context_settings={"allow_interspersed_args": True})
 def do(
     task: str = typer.Argument(..., help="Natural language task description"),
     url: str = typer.Option(None, "--url", "-u", help="Starting URL"),
-    use_browser_use: bool = typer.Option(False, "--browser-use", help="Force browser-use backend (fresh browser)"),
 ) -> None:
     """Execute a natural language task via Chrome extension (real browser).
 
     Uses your real Chrome browser with all cookies and sessions.
-    Falls back to browser-use (fresh browser) if extension is unavailable.
     """
     from maestro_fetch.core.config import load_config
 
     config = load_config()
-    backend_cfg = config.get("backends", {}).get("browser-use", {})
-    model = backend_cfg.get("model", "claude-sonnet-4-20250514")
-    timeout = backend_cfg.get("timeout", 120)
+    automation_cfg = config.get("automation", {})
+    model = automation_cfg.get("model", "claude-sonnet-4-20250514")
+    timeout = automation_cfg.get("timeout", 120)
 
     typer.echo(f"Executing: {task}")
 
-    if not use_browser_use:
-        # Try extension-based agent first
-        result = _run(_extension_agent_loop(task, url, model, timeout))
-        if result is not None:
-            content = result.get("result", "")
-            if content:
-                typer.echo(content)
-            else:
-                typer.echo(json.dumps(result, indent=2, ensure_ascii=False, default=str))
-            if not result.get("success", False):
-                raise typer.Exit(code=1)
-            return
-
-        typer.echo("Extension unavailable, falling back to browser-use...")
-
-    # Fallback to browser-use
-    from maestro_fetch.backends.browser_use import BrowserUseBackend
-
-    backend = BrowserUseBackend(model=model, timeout=timeout)
-
-    if not _run(backend.is_available()):
-        typer.echo(
-            "browser-use is not installed. Install with: pip install 'maestro-fetch[ai-browser]'",
-            err=True,
-        )
-        raise typer.Exit(code=1)
-
     try:
-        result = _run(backend.execute_task(task, url=url))
+        result = _run(_extension_agent_loop(task, url, model, timeout))
         content = result.get("result", "")
         if content:
             typer.echo(content)
