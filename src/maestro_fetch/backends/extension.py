@@ -72,6 +72,14 @@ class ExtensionBackend:
         self._base_url = f"http://127.0.0.1:{port}"
         self._connected = False
 
+    @staticmethod
+    def _daemon_headers() -> dict[str, str]:
+        """Send both headers so old opencli daemons do not reject commands."""
+        return {
+            "X-MFetch": "1",
+            "X-OpenCLI": "1",
+        }
+
     # -- HTTP helpers -------------------------------------------------------
 
     async def _http_get(self, path: str, timeout: float = 5.0) -> dict | None:
@@ -84,7 +92,7 @@ class ExtensionBackend:
             async with httpx.AsyncClient(timeout=timeout) as client:
                 resp = await client.get(
                     f"{self._base_url}{path}",
-                    headers={"X-MFetch": "1"},
+                    headers=self._daemon_headers(),
                 )
                 if resp.status_code == 200:
                     return resp.json()
@@ -107,7 +115,7 @@ class ExtensionBackend:
                 async with httpx.AsyncClient(timeout=_COMMAND_TIMEOUT) as client:
                     resp = await client.post(
                         url,
-                        headers={"X-MFetch": "1"},
+                        headers=self._daemon_headers(),
                         json=cmd,
                     )
 
@@ -157,28 +165,39 @@ class ExtensionBackend:
 
     # -- connection lifecycle -----------------------------------------------
 
-    async def _is_daemon_running(self) -> bool:
-        """Check if daemon is listening on the port."""
+    async def _detect_daemon_flavor(self) -> str | None:
+        """Return 'mfetch', 'opencli', or None."""
         try:
             import httpx
         except ImportError:
-            return False
-        try:
-            async with httpx.AsyncClient(timeout=2) as client:
-                resp = await client.get(f"{self._base_url}/health")
-                return resp.status_code == 200
-        except Exception:
-            pass
-        # Also check if something is listening and can answer health.
+            return None
+
         try:
             async with httpx.AsyncClient(timeout=2) as client:
                 resp = await client.get(
                     f"{self._base_url}/health",
-                    headers={"X-MFetch": "1"},
+                    headers=self._daemon_headers(),
                 )
-                return resp.status_code == 200
+            if resp.status_code != 200:
+                return None
+            text = resp.text.strip()
+            if text == "ok":
+                return "opencli"
+            try:
+                payload = resp.json()
+            except Exception:
+                return "opencli" if text else None
+            if payload.get("service") == "mfetch-daemon":
+                return "mfetch"
+            if payload.get("daemon") is True:
+                return "opencli"
         except Exception:
-            return False
+            return None
+        return None
+
+    async def _is_daemon_running(self) -> bool:
+        """Check if daemon is listening on the port."""
+        return await self._detect_daemon_flavor() is not None
 
     async def _is_extension_connected(self) -> bool:
         """Check if Chrome extension is connected to daemon."""
@@ -288,9 +307,16 @@ class ExtensionBackend:
             )
 
         # Step 2: Ensure daemon
-        if not await self._is_daemon_running():
+        daemon_flavor = await self._detect_daemon_flavor()
+        if daemon_flavor is None:
             await self._spawn_daemon()
             await self._wait_for_daemon()
+            daemon_flavor = await self._detect_daemon_flavor()
+        elif daemon_flavor == "opencli":
+            log.warning(
+                "Detected legacy opencli daemon on port %d; using compatibility headers.",
+                self._port,
+            )
 
         # Step 3: Wait for extension (5s initial)
         deadline = asyncio.get_event_loop().time() + _EXTENSION_INITIAL_WAIT
@@ -334,7 +360,8 @@ class ExtensionBackend:
             return False
 
         # Quick check: if daemon is running and extension connected, we're good
-        if await self._is_daemon_running() and await self._is_extension_connected():
+        daemon_flavor = await self._detect_daemon_flavor()
+        if daemon_flavor is not None and await self._is_extension_connected():
             self._connected = True
             return True
 
