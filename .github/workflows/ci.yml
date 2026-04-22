@@ -24,8 +24,34 @@ jobs:
         run: uv run ruff check src tests
       - name: Pytest
         run: uv run python -m pytest -q
+      - name: Compileall
+        run: uv run python -m compileall src
       - name: Build package
         run: uv build
+      - name: Twine metadata check
+        run: uv tool run twine check dist/*
+      - name: Repo hygiene scan
+        run: uv run python scripts/check_repo_hygiene.py
+      - name: Release artifact scan
+        run: uv run python scripts/check_release_artifacts.py
+
+  wheel-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install uv
+        run: python -m pip install uv
+      - name: Build wheel
+        run: uv build --wheel
+      - name: Install built wheel
+        run: python -m pip install dist/*.whl
+      - name: CLI smoke
+        run: mfetch --help
+      - name: Import smoke
+        run: python -c "import maestro_fetch; print(maestro_fetch.__file__)"
 
   extension:
     runs-on: ubuntu-latest
