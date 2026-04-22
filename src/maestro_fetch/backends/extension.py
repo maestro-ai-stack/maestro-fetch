@@ -523,6 +523,17 @@ class ExtensionBackend:
             return base64.b64decode(result["data"])
         raise FetchError("Unexpected screenshot result format")
 
+    async def screenshot_current(self) -> bytes:
+        """Screenshot the current automation page as PNG bytes."""
+        await self._ensure_connected()
+        cmd = self._make_command("screenshot", format="png", full_page=True)
+        result = await self._send_command(cmd)
+        if isinstance(result, str):
+            return base64.b64decode(result)
+        elif isinstance(result, dict) and "data" in result:
+            return base64.b64decode(result["data"])
+        raise FetchError("Unexpected screenshot result format")
+
     async def exec_tab(self, tab_id: int, js: str) -> Any:
         """Execute JavaScript in an existing tab."""
         await self._ensure_connected()
@@ -573,6 +584,18 @@ class ExtensionBackend:
         await self._ensure_connected()
         cmd = self._make_command("click-at", x=x, y=y)
         cmd["tabId"] = tab_id
+        return await self._send_command(cmd)
+
+    async def type_text(self, text: str) -> Any:
+        """Type text into the focused element on the current automation page."""
+        await self._ensure_connected()
+        cmd = self._make_command("type", text=text)
+        return await self._send_command(cmd)
+
+    async def click_at(self, x: int, y: int) -> Any:
+        """Click at coordinates on the current automation page."""
+        await self._ensure_connected()
+        cmd = self._make_command("click-at", x=x, y=y)
         return await self._send_command(cmd)
 
     # -- Extra methods (beyond BrowserBackend protocol) ---------------------
