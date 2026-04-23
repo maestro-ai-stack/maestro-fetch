@@ -59,3 +59,23 @@ def test_tab_type_calls_backend(monkeypatch) -> None:
     result = runner.invoke(app, ["type", "5", "hello"])
     assert result.exit_code == 0
     assert "typed" in result.output
+
+
+def test_tab_fill_returns_nonzero_when_selector_missing(monkeypatch) -> None:
+    backend = type("Backend", (), {})()
+    backend.fill_tab = AsyncMock(return_value='selector not found: [id="missing"]')
+    monkeypatch.setattr("maestro_fetch.cli.tab_cmd._backend", lambda: backend)
+
+    result = runner.invoke(app, ["fill", "5", '[id="missing"]', "hello"])
+    assert result.exit_code == 1
+    assert "Fill failed: selector not found" in result.output
+
+
+def test_tab_click_returns_nonzero_when_selector_missing(monkeypatch) -> None:
+    backend = type("Backend", (), {})()
+    backend.click_tab = AsyncMock(return_value='selector not found: [id="missing"]')
+    monkeypatch.setattr("maestro_fetch.cli.tab_cmd._backend", lambda: backend)
+
+    result = runner.invoke(app, ["click", "5", '[id="missing"]'])
+    assert result.exit_code == 1
+    assert "Click failed: selector not found" in result.output

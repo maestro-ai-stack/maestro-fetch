@@ -27,6 +27,12 @@ def _backend():
     return backend
 
 
+def _require_action_success(result, *, action: str) -> None:
+    if isinstance(result, str) and result.startswith("selector not found:"):
+        typer.echo(f"{action} failed: {result}", err=True)
+        raise typer.Exit(code=1)
+
+
 @app.command("list")
 def list_tabs() -> None:
     """List all open Chrome tabs."""
@@ -93,6 +99,7 @@ def fill(
     """Fill a form field in an existing tab."""
     backend = _backend()
     result = _run(backend.fill_tab(tab_id, selector, value))
+    _require_action_success(result, action="Fill")
     typer.echo(result)
 
 
@@ -104,6 +111,7 @@ def click(
     """Click an element in an existing tab."""
     backend = _backend()
     result = _run(backend.click_tab(tab_id, selector))
+    _require_action_success(result, action="Click")
     typer.echo(result)
 
 
