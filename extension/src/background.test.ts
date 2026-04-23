@@ -148,4 +148,21 @@ describe('background tab isolation', () => {
       expect.objectContaining({ workspace: 'site:zhihu', windowId: 2 }),
     ]));
   });
+
+  it('does not silently retarget explicit tab commands when the tab is gone', async () => {
+    const { chrome } = createChromeMock();
+    chrome.tabs.get = vi.fn(async (_tabId: number) => {
+      throw new Error('Unknown tab 999');
+    });
+    vi.stubGlobal('chrome', chrome);
+
+    const mod = await import('./background');
+    const result = await mod.__test__.handleExec(
+      { id: '4', action: 'exec', tabId: 999, code: 'document.title', workspace: 'site:twitter' },
+      'site:twitter',
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain('Tab 999 no longer exists');
+  });
 });

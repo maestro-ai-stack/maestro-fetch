@@ -244,7 +244,12 @@ function isDebuggableUrl(url?: string): boolean {
  * If explicit tabId is given, use that directly.
  * Otherwise, find or create a tab in the dedicated automation window.
  */
-async function resolveTabId(tabId: number | undefined, workspace: string): Promise<number> {
+async function resolveTabId(
+  tabId: number | undefined,
+  workspace: string,
+  options: { fallbackToAutomation?: boolean } = {},
+): Promise<number> {
+  const fallbackToAutomation = options.fallbackToAutomation ?? true;
   // Even when an explicit tabId is provided, validate it is still debuggable.
   // This prevents issues when extensions hijack the tab URL to chrome-extension://
   // or when the tab has been closed by the user.
@@ -252,9 +257,15 @@ async function resolveTabId(tabId: number | undefined, workspace: string): Promi
     try {
       const tab = await chrome.tabs.get(tabId);
       if (isDebuggableUrl(tab.url)) return tabId;
+      if (!fallbackToAutomation) {
+        throw new Error(`Tab ${tabId} is no longer debuggable (${tab.url ?? 'unknown'})`);
+      }
       // Tab exists but URL is not debuggable — fall through to auto-resolve
       console.warn(`[mfetch] Tab ${tabId} URL is not debuggable (${tab.url}), re-resolving`);
     } catch {
+      if (!fallbackToAutomation) {
+        throw new Error(`Tab ${tabId} no longer exists`);
+      }
       // Tab was closed — fall through to auto-resolve
       console.warn(`[mfetch] Tab ${tabId} no longer exists, re-resolving`);
     }
@@ -307,8 +318,8 @@ async function listAutomationWebTabs(workspace: string): Promise<chrome.tabs.Tab
 
 async function handleExec(cmd: Command, workspace: string): Promise<Result> {
   if (!cmd.code) return { id: cmd.id, ok: false, error: 'Missing code' };
-  const tabId = await resolveTabId(cmd.tabId, workspace);
   try {
+    const tabId = await resolveTabId(cmd.tabId, workspace, { fallbackToAutomation: cmd.tabId === undefined });
     const data = await executor.evaluateAsync(tabId, cmd.code);
     return { id: cmd.id, ok: true, data };
   } catch (err) {
@@ -318,7 +329,12 @@ async function handleExec(cmd: Command, workspace: string): Promise<Result> {
 
 async function handleNavigate(cmd: Command, workspace: string): Promise<Result> {
   if (!cmd.url) return { id: cmd.id, ok: false, error: 'Missing url' };
-  const tabId = await resolveTabId(cmd.tabId, workspace);
+  let tabId: number;
+  try {
+    tabId = await resolveTabId(cmd.tabId, workspace, { fallbackToAutomation: cmd.tabId === undefined });
+  } catch (err) {
+    return { id: cmd.id, ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
 
   // Capture the current URL before navigation to detect actual URL change
   const beforeTab = await chrome.tabs.get(tabId);
@@ -468,8 +484,8 @@ async function handleCookies(cmd: Command): Promise<Result> {
 }
 
 async function handleScreenshot(cmd: Command, workspace: string): Promise<Result> {
-  const tabId = await resolveTabId(cmd.tabId, workspace);
   try {
+    const tabId = await resolveTabId(cmd.tabId, workspace, { fallbackToAutomation: cmd.tabId === undefined });
     const data = await executor.screenshot(tabId, {
       format: cmd.format,
       quality: cmd.quality,
@@ -482,10 +498,10 @@ async function handleScreenshot(cmd: Command, workspace: string): Promise<Result
 }
 
 async function handleType(cmd: Command, workspace: string): Promise<Result> {
-  const tabId = await resolveTabId(cmd.tabId, workspace);
   const text = cmd.text ?? '';
   if (!text) return { id: cmd.id, ok: false, error: 'No text to type' };
   try {
+    const tabId = await resolveTabId(cmd.tabId, workspace, { fallbackToAutomation: cmd.tabId === undefined });
     await executor.typeText(tabId, text);
     return { id: cmd.id, ok: true, data: `typed ${text.length} chars` };
   } catch (err) {
@@ -494,10 +510,10 @@ async function handleType(cmd: Command, workspace: string): Promise<Result> {
 }
 
 async function handleClickAt(cmd: Command, workspace: string): Promise<Result> {
-  const tabId = await resolveTabId(cmd.tabId, workspace);
   const x = cmd.x ?? 0;
   const y = cmd.y ?? 0;
   try {
+    const tabId = await resolveTabId(cmd.tabId, workspace, { fallbackToAutomation: cmd.tabId === undefined });
     await executor.clickAt(tabId, x, y);
     return { id: cmd.id, ok: true, data: `clicked at (${x}, ${y})` };
   } catch (err) {
@@ -531,6 +547,7 @@ async function handleSessions(cmd: Command): Promise<Result> {
 }
 
 export const __test__ = {
+  handleExec,
   handleTabs,
   handleSessions,
   getAutomationWindowId: (workspace: string = 'default') => automationSessions.get(workspace)?.windowId ?? null,

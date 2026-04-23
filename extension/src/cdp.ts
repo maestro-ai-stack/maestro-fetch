@@ -7,6 +7,9 @@
  */
 
 const attached = new Set<number>();
+const MAX_SCREENSHOT_WIDTH = 4096;
+const MAX_SCREENSHOT_HEIGHT = 12000;
+const MAX_SCREENSHOT_AREA = 40_000_000;
 
 /** Check if a URL can be attached via CDP */
 function isDebuggableUrl(url?: string): boolean {
@@ -115,11 +118,31 @@ export async function screenshot(
     };
     const size = metrics.cssContentSize || metrics.contentSize;
     if (size) {
+      let width = Math.ceil(size.width);
+      let height = Math.ceil(size.height);
+      const originalWidth = width;
+      const originalHeight = height;
+
+      if (width > MAX_SCREENSHOT_WIDTH) width = MAX_SCREENSHOT_WIDTH;
+      if (height > MAX_SCREENSHOT_HEIGHT) height = MAX_SCREENSHOT_HEIGHT;
+
+      if (width * height > MAX_SCREENSHOT_AREA) {
+        const scale = Math.sqrt(MAX_SCREENSHOT_AREA / (width * height));
+        width = Math.max(1, Math.floor(width * scale));
+        height = Math.max(1, Math.floor(height * scale));
+      }
+
+      if (width !== originalWidth || height !== originalHeight) {
+        console.warn(
+          `[mfetch] Capping full-page screenshot for tab ${tabId} from ${originalWidth}x${originalHeight} to ${width}x${height}`,
+        );
+      }
+
       // Set device metrics to full page size
       await chrome.debugger.sendCommand({ tabId }, 'Emulation.setDeviceMetricsOverride', {
         mobile: false,
-        width: Math.ceil(size.width),
-        height: Math.ceil(size.height),
+        width,
+        height,
         deviceScaleFactor: 1,
       });
     }
