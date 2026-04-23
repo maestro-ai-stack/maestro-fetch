@@ -19,6 +19,8 @@
 
 Give it any URL -- web page, PDF, spreadsheet, cloud file, video, binary dataset -- and get back clean markdown or structured data. Smart routing picks the right adapter; the native browser stack handles authentication and JS-heavy pages. No API key is required for core fetching.
 
+Today, "universal" means one CLI for the currently supported adapters and browser workflows: public web, authenticated Chrome-backed web sessions, documents, cloud share links, media, Baidu Pan, and common binary/data files. It does not yet mean every URI scheme in the roadmap.
+
 ---
 
 ## Quickstart
@@ -51,6 +53,8 @@ pip install maestro-fetch
 
 ```bash
 mfetch "https://example.com"
+# equivalent explicit form:
+mfetch main "https://example.com"
 ```
 
 Try it now:
@@ -174,6 +178,7 @@ Tested on macOS (Apple Silicon), Python 3.11, uv 0.11.2. March 2026.
 
 ```bash
 mfetch "https://example.com"                       # auto-detect, markdown output
+mfetch main "https://example.com"                  # explicit fetch subcommand form
 mfetch "https://example.com/report.pdf"            # PDF -> markdown
 mfetch "https://example.com" --output json         # JSON output
 mfetch "https://example.com" --timeout 120         # custom timeout
@@ -196,8 +201,12 @@ mfetch source run worldbank/gdp CN                 # fetch World Bank GDP for Ch
 mfetch discover "https://login-required.com"
 mfetch tab list
 mfetch tab snapshot 123
+mfetch tab type 123 "hello world"
 mfetch do "log into this site and open the billing page" --url "https://login-required.com"
 ```
+
+`mfetch tab` is the low-level browser control surface for existing Chrome tabs.
+`mfetch do` is the higher-level browser operator that plans over the same native browser stack, including page reads, screenshots, real keyboard typing, coordinate clicks, waits, and JS execution.
 
 ### Cache management
 
@@ -317,6 +326,16 @@ CLI / SDK / MCP
 ```
 
 **Router decision chain:** (1) match community source adapter (`@meta`) → dispatch to source; (2) match built-in adapter by URL pattern → dispatch directly; (3) native web stack for everything else.
+
+Current product surface:
+
+- Fetch and parse public or authenticated web pages
+- Operate Chrome via `mfetch tab` and `mfetch do`
+- Download and parse PDFs, spreadsheets, CSV/JSON docs
+- Download cloud share files from Google Drive/Docs/Sheets/Dropbox
+- Download from Baidu Pan via OAuth + browser-assisted save flow
+- Download media transcripts from YouTube/Vimeo paths supported by `yt-dlp`
+- Download binary/data artifacts like Parquet, GeoTIFF, NetCDF, HDF5, ZIP
 
 ---
 
