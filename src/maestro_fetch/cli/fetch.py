@@ -8,7 +8,6 @@ import asyncio
 import json
 import shutil
 from pathlib import Path
-from typing import Optional
 
 import typer
 
@@ -27,20 +26,20 @@ def main(
         "markdown", "--output", "-o",
         help="Output format: markdown|csv|json|parquet",
     ),
-    schema: Optional[Path] = typer.Option(
+    schema: Path | None = typer.Option(
         None, "--schema", help="JSON schema file for LLM extraction",
     ),
     provider: str = typer.Option(
         "anthropic", "--provider",
         help="LLM provider: anthropic|openai|gemini|ollama",
     ),
-    model: Optional[str] = typer.Option(
+    model: str | None = typer.Option(
         None, "--model", help="Model name override",
     ),
-    output_dir: Optional[Path] = typer.Option(
+    output_dir: Path | None = typer.Option(
         None, "--output-dir", help="Directory to save output files",
     ),
-    batch: Optional[Path] = typer.Option(
+    batch: Path | None = typer.Option(
         None, "--batch", help="File containing one URL per line",
     ),
     cache_dir: str = typer.Option(
@@ -89,7 +88,7 @@ def main(
 def _print_result(
     result: FetchResult,
     output_format: str,
-    output_dir: Optional[Path],
+    output_dir: Path | None,
 ) -> None:
     """Format and print a FetchResult to stdout (or save to file)."""
     # Binary results (images, archives, data files): copy raw file to output_dir

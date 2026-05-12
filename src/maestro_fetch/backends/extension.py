@@ -229,8 +229,8 @@ class ExtensionBackend:
 
     async def _wait_for_daemon(self) -> None:
         """Poll /health until daemon is ready (10s timeout)."""
-        deadline = asyncio.get_event_loop().time() + _READY_TIMEOUT
-        while asyncio.get_event_loop().time() < deadline:
+        deadline = asyncio.get_running_loop().time() + _READY_TIMEOUT
+        while asyncio.get_running_loop().time() < deadline:
             if await self._is_daemon_running():
                 log.info("Daemon is ready on port %d", self._port)
                 return
@@ -318,8 +318,8 @@ class ExtensionBackend:
             )
 
         # Step 3: Wait for extension (5s initial)
-        deadline = asyncio.get_event_loop().time() + _EXTENSION_INITIAL_WAIT
-        while asyncio.get_event_loop().time() < deadline:
+        deadline = asyncio.get_running_loop().time() + _EXTENSION_INITIAL_WAIT
+        while asyncio.get_running_loop().time() < deadline:
             if await self._is_extension_connected():
                 self._connected = True
                 log.info("Extension connected")
@@ -330,8 +330,8 @@ class ExtensionBackend:
         log.info("Extension not connected, waking Chrome...")
         self._wake_chrome()
 
-        deadline = asyncio.get_event_loop().time() + _EXTENSION_REMAINING_WAIT
-        while asyncio.get_event_loop().time() < deadline:
+        deadline = asyncio.get_running_loop().time() + _EXTENSION_REMAINING_WAIT
+        while asyncio.get_running_loop().time() < deadline:
             if await self._is_extension_connected():
                 self._connected = True
                 log.info("Extension connected after wake")

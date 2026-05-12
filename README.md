@@ -168,7 +168,42 @@ Tested on macOS (Apple Silicon), Python 3.11, uv 0.11.2. March 2026.
 | `media` | Video and audio | YouTube, Vimeo (transcription via yt-dlp + Whisper) |
 | `baidu_pan` | Baidu Pan | `pan.baidu.com` links via OAuth + PCS API |
 | `browser` | Authenticated / JS-heavy pages | Chrome extension-backed interactive sessions |
-| `source` | Community adapters | World Bank, FRED, NOAA, academic datasets, ... |
+| `source` | Community adapters | World Bank GDP, Open-Meteo weather, arXiv search, GitHub trending, Hacker News, Reddit (4 adapters) |
+| `.eml`, `.msg` files | Email | Message body + metadata extraction |
+
+---
+
+## Site Adapters
+
+Interact with social platforms directly from the CLI. All operations run in a background Chrome tab — **zero focus stealing**.
+
+```bash
+# Twitter/X
+mfetch twitter timeline             # Home feed (GraphQL)
+mfetch twitter search "AI agents"   # Search tweets
+mfetch twitter reply "text" "url"   # Reply to a tweet
+mfetch twitter post "hello world"   # Post a new tweet
+mfetch twitter thread "url"         # Read a full thread
+mfetch twitter like "url"           # Like a tweet
+mfetch twitter bookmark "url"       # Bookmark a tweet
+mfetch twitter bookmarks            # List your bookmarks
+mfetch twitter trending             # Trending topics
+
+# Xiaohongshu (小红书)
+mfetch xiaohongshu feed             # Home feed
+mfetch xiaohongshu search "上海"    # Search notes
+mfetch xiaohongshu publish "text"   # Publish a note
+mfetch xiaohongshu creator-notes    # Creator dashboard
+mfetch xiaohongshu creator-profile  # Creator stats
+
+# WeChat (微信公众号)
+mfetch weixin article "url"         # Read article → Markdown
+mfetch weixin search "query"        # Search via Sogou
+```
+
+Requires: Chrome with the maestro-fetch extension. Log into each platform in Chrome first.
+
+Custom adapters go in `~/.maestro-fetch/custom/<site>/<command>.py` — auto-discovered, no registration needed.
 
 ---
 
@@ -199,9 +234,14 @@ mfetch source run worldbank/gdp CN                 # fetch World Bank GDP for Ch
 
 ```bash
 mfetch discover "https://login-required.com"
-mfetch tab list
-mfetch tab snapshot 123
-mfetch tab type 123 "hello world"
+mfetch tab list                                    # List all Chrome tabs
+mfetch tab find "x.com"                            # Find tab by URL/title
+mfetch tab snapshot 123                            # Get page content as markdown
+mfetch tab screenshot 123                          # Take a screenshot
+mfetch tab exec 123 "document.title"               # Execute JS in tab
+mfetch tab click 123 ".btn"                        # Click an element
+mfetch tab fill 123 "#input" "val"                 # Fill a form field
+mfetch tab type 123 "hello"                        # Type via keyboard events
 mfetch do "log into this site and open the billing page" --url "https://login-required.com"
 ```
 
