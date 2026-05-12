@@ -47,7 +47,7 @@ data = ["pyarrow>=14.0", "openpyxl>=3.1"]
 media = ["yt-dlp>=2024.1", "openai-whisper>=20231117"]
 anthropic = ["anthropic>=0.34"]
 openai = ["openai>=1.40"]
-social = ["twikit>=2.0", "praw>=7.7"]
+social = ["praw>=7.7"]
 all = [
     "maestro-fetch[pdf]",
     "maestro-fetch[data]",

@@ -38,11 +38,38 @@ app.registered_commands += fetch_app.registered_commands
 # Known subcommand names
 _SUBCOMMANDS = {"source", "cache", "config", "discover", "do", "tab", "main"}
 
+# Site aliases discovered from source adapters (e.g. "twitter" → "source run twitter/...")
+_SITE_NAMES: set[str] | None = None
+
+
+def _discover_sites() -> set[str]:
+    """Scan source adapters for site prefixes (twitter, xiaohongshu, weixin, ...)."""
+    global _SITE_NAMES
+    if _SITE_NAMES is not None:
+        return _SITE_NAMES
+    from maestro_fetch.cli.source import _all_adapters
+    sites = set()
+    for adapter in _all_adapters():
+        name = adapter.meta.name
+        if "/" in name:
+            sites.add(name.split("/")[0])
+    _SITE_NAMES = sites
+    return sites
+
 
 def run() -> None:
-    """Entry point that auto-inserts 'main' when first arg looks like a URL."""
+    """Entry point with site aliases: ``mfetch twitter reply`` → ``mfetch source run twitter/reply``."""
     args = sys.argv[1:]
     if args and args[0] not in _SUBCOMMANDS and not args[0].startswith("-"):
-        # First arg is not a subcommand or flag — treat as URL, insert "main"
-        sys.argv.insert(1, "main")
+        # Check if first arg is a site name (twitter, xiaohongshu, etc.)
+        sites = _discover_sites()
+        if args[0] in sites and len(args) >= 2 and not args[1].startswith("-"):
+            # mfetch twitter reply "text" "url" → mfetch source run twitter/reply "text" "url"
+            site = args[0]
+            command = args[1]
+            rest = args[2:]
+            sys.argv = [sys.argv[0], "source", "run", f"{site}/{command}"] + rest
+        else:
+            # Not a site — treat as URL
+            sys.argv.insert(1, "main")
     app()

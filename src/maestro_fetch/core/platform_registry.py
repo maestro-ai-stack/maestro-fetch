@@ -12,8 +12,8 @@ from enum import Enum
 class Layer(str, Enum):
     """Execution layers, ordered by preference."""
 
-    API = "api"  # twikit, praw — READ only, fast, no browser
-    PIPELINE = "pipeline"  # extension-backed browser pipeline — READ+WRITE
+    API = "api"  # source adapters (praw, etc.) — READ only, fast, no browser
+    PIPELINE = "pipeline"  # tab-exec browser pipeline — READ+WRITE, no focus steal
 
 
 @dataclass(frozen=True)

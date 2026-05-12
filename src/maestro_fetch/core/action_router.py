@@ -1,10 +1,10 @@
 """Action router for social platform operations.
 
 Routing strategy:
-  Layer 1 (API)      — twikit/praw, READ only, fast, no browser
-  Layer 2 (Pipeline) — extension backend, READ+WRITE
+  Layer 1 (API)      — source adapters (praw, etc.), READ only, fast, no browser
+  Layer 2 (Tab exec) — extension backend tab targeting, READ+WRITE, no focus steal
 
-Write operations skip Layer 1, try Pipeline first.
+Write operations skip Layer 1, try tab exec first.
 """
 from __future__ import annotations
 
@@ -63,7 +63,7 @@ class ActionRouter:
     async def _execute_api(
         self, pa: PlatformAction, *args: str, **kwargs: Any
     ) -> dict:
-        """Execute via source adapter (twikit, praw, etc.)."""
+        """Execute via source adapter (praw, tab-exec, etc.)."""
         if not pa.source_adapter:
             raise FetchError(f"No source adapter for {pa.platform}/{pa.action}")
 
